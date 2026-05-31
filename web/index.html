@@ -1,45 +1,36 @@
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
+  <!-- O base href é essencial para o GitHub Pages. O Flutter preencherá isso no build. -->
   <base href="$FLUTTER_BASE_HREF">
 
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="description" content="TerlineT Vision System.">
-
-  <!-- iOS meta tags & icons -->
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black">
-  <meta name="apple-mobile-web-app-title" content="TerlineT Vision">
-
-  <link rel="icon" type="image/png" href="favicon.png"/>
-
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>TerlineT Vision</title>
+  <link rel="icon" type="image/png" href="favicon.png"/>
   <link rel="manifest" href="manifest.json">
 
-  <!-- MEDIA PIPE - CARREGAMENTO COMO MÓDULO -->
+  <!-- MEDIA PIPE - CARREGAMENTO COM CACHE BUSTER PARA O GIT -->
   <script type="module">
-    import { FilesetResolver, ObjectDetector } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.17";
+    // Adicionamos ?v=1.1 para forçar o GitHub/Navegador a baixar a versão nova
+    import { FilesetResolver, ObjectDetector } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.17?v=1.1";
     window.FilesetResolver = FilesetResolver;
     window.ObjectDetector = ObjectDetector;
-    console.log("✅ MediaPipe carregado via módulo.");
+    window.isMediaPipeLoaded = true;
+    console.log("✅ MediaPipe Módulo Ativo");
   </script>
 
   <script>
     let objectDetector = null;
-    let isModelReady = false;
 
     window.initObjectDetector = async function() {
       try {
-        console.log("🟢 Iniciando MediaPipe...");
-
+        console.log("🟢 Aguardando Módulo...");
         let retry = 0;
-        while (typeof FilesetResolver === 'undefined' && retry < 100) {
+        while (!window.isMediaPipeLoaded && retry < 100) {
           await new Promise(r => setTimeout(r, 100));
           retry++;
-        }
-        if (typeof FilesetResolver === 'undefined') {
-          throw new Error("FilesetResolver não disponível após espera.");
         }
 
         const vision = await FilesetResolver.forVisionTasks(
@@ -55,17 +46,16 @@
           scoreThreshold: 0.3
         });
 
-        isModelReady = true;
-        console.log("✅ Detector IA Pronto.");
+        console.log("✅ Detector TerlineT Online");
         window.dispatchEvent(new Event('mediapipe-ready'));
       } catch (err) {
-        console.error("❌ Erro MediaPipe:", err);
+        console.error("❌ Erro Crítico IA:", err);
         window.dispatchEvent(new Event('mediapipe-error'));
       }
     };
 
     window.runObjectDetection = function(videoID) {
-      if (!objectDetector || !isModelReady) return [];
+      if (!objectDetector) return [];
       const video = document.getElementById(videoID);
       if (!video || video.readyState < 2) return [];
       try {
@@ -79,7 +69,7 @@
     };
   </script>
 </head>
-<body>
+<body style="background-color: black;">
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>

@@ -234,9 +234,9 @@ END OF TRANSMISSION
       debugPrint("✅ Camera hardware linked and playing");
 
       // Verificação se o elemento de vídeo está no DOM (para debug)
-      html.window.setTimeout(() {
+      Future.delayed(const Duration(seconds: 1), () {
         debugPrint('Video element exists in DOM? ${html.document.getElementById('counting-video') != null}');
-      }, 1000);
+      });
 
       // Aguarda o container estar na tela e anexa o vídeo
       WidgetsBinding.instance.addPostFrameCallback((_) {

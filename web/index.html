@@ -47,7 +47,7 @@
     window.addEventListener('load', function(ev) {
       console.log('✅ MediaPipe Vision disponível?', typeof tasksVision !== 'undefined');
 
-      _flutter.loader.loadEntrypoint({
+      _flutter.loader.load({
         onEntrypointLoaded: function(engineInitializer) {
           engineInitializer.initializeEngine().then(function(appRunner) {
             appRunner.runApp();

@@ -15,7 +15,7 @@ dependencies:
   intl: ^0.19.0
   http: ^1.2.1
   camera: ^0.11.0
-  google_mlkit_object_detection: ^0.16.0
+  google_mlkit_object_detection: ^0.15.1
 
 dev_dependencies:
   flutter_test:

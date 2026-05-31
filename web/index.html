@@ -11,41 +11,42 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <meta name="apple-mobile-web-app-title" content="TerlineT Vision">
-  <link rel="apple-touch-icon" href="icons/Icon-192.png">
 
-  <!-- Favicon -->
   <link rel="icon" type="image/png" href="favicon.png"/>
 
   <title>TerlineT Vision</title>
   <link rel="manifest" href="manifest.json">
 
-  <!-- Carrega o bundle do MediaPipe Tasks Vision -->
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.17/vision_bundle.js"></script>
+  <!-- Carrega MediaPipe como Módulo para evitar Erro de Syntax (export) -->
+  <script type="module">
+    import { FilesetResolver, ObjectDetector } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.17";
+
+    // Torna as classes globais para o código legado/Dart acessar
+    window.FilesetResolver = FilesetResolver;
+    window.ObjectDetector = ObjectDetector;
+    console.log("✅ MediaPipe Classes carregadas via Módulo");
+  </script>
 
   <script>
-    // Variável global para o detector
     let objectDetector = null;
     let isModelReady = false;
 
-    // Função chamada pelo Dart para iniciar o detector
     window.initObjectDetector = async function() {
       try {
         console.log("🟢 Iniciando MediaPipe Object Detector...");
 
         let retry = 0;
+        // Aguarda o módulo carregar as classes no window
         while (typeof FilesetResolver === 'undefined' && retry < 50) {
           await new Promise(r => setTimeout(r, 100));
           retry++;
-        }
-        if (typeof FilesetResolver === 'undefined') {
-          throw new Error("FilesetResolver não carregado");
         }
 
         const vision = await FilesetResolver.forVisionTasks(
           "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.17/wasm"
         );
 
-        let options = {
+        const options = {
           baseOptions: {
             modelAssetPath: "https://storage.googleapis.com/mediapipe-models/object_detector/efficientdet_lite0/float16/1/efficientdet_lite0.tflite",
             delegate: "GPU"
@@ -99,27 +100,8 @@
       }
     };
   </script>
-
-  <script src="flutter.js" defer></script>
 </head>
 <body>
-  <script>
-    window.addEventListener('load', function(ev) {
-      // Inicia MediaPipe
-      window.initObjectDetector();
-
-      // Download main.dart.js
-      _flutter.loader.loadEntrypoint({
-        serviceWorker: {
-          timeoutMillis: 4000,
-        },
-        onEntrypointLoaded: function(engineInitializer) {
-          engineInitializer.initializeEngine().then(function(appRunner) {
-            appRunner.runApp();
-          });
-        }
-      });
-    });
-  </script>
+  <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>

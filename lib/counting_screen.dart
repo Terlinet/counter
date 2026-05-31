@@ -23,6 +23,7 @@ class ObjectCountingScreen extends StatefulWidget {
 class _ObjectCountingScreenState extends State<ObjectCountingScreen> {
   html.VideoElement? _videoElement;
   html.MediaStream? _mediaStream;
+  html.DivElement? _videoContainer;
   CameraStatus _cameraStatus = CameraStatus.loading;
 
   bool _modelReady = false;
@@ -42,6 +43,7 @@ class _ObjectCountingScreenState extends State<ObjectCountingScreen> {
 
   static const int _detectionIntervalMs = 200;
   DateTime _lastDetectionTime = DateTime.now();
+  Key _cameraViewKey = UniqueKey();
 
   @override
   void initState() {
@@ -50,14 +52,11 @@ class _ObjectCountingScreenState extends State<ObjectCountingScreen> {
     ui_web.platformViewRegistry.registerViewFactory(
       'video-view',
       (int viewId) {
-        final container = html.DivElement()
+        _videoContainer = html.DivElement()
           ..style.width = '100%'
           ..style.height = '100%'
           ..style.backgroundColor = 'black';
-        if (_videoElement != null) {
-          container.append(_videoElement!);
-        }
-        return container;
+        return _videoContainer!;
       },
     );
     _initCamera();
@@ -231,8 +230,17 @@ END OF TRANSMISSION
       await _videoElement!.onCanPlay.first;
       _videoElement!.play();
 
+      // Aguarda o container estar na tela e anexa o vídeo
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_videoContainer != null && _videoElement != null) {
+          _videoContainer!.children.clear();
+          _videoContainer!.append(_videoElement!);
+        }
+      });
+
       if (mounted) {
         setState(() {
+          _cameraViewKey = UniqueKey();
           _cameraStatus = CameraStatus.available;
           _statusMessage = "LOADING NEURAL NETWORK...";
         });
@@ -252,6 +260,8 @@ END OF TRANSMISSION
     _mediaStream?.getTracks().forEach((track) => track.stop());
     _videoElement?.remove();
     _videoElement = null;
+    _videoContainer?.children.clear();
+    _videoContainer = null;
   }
 
   // ---------------------- MODELO (TF.JS + COCO-SSD) ----------------------
@@ -395,8 +405,9 @@ END OF TRANSMISSION
         children: [
           // Feed da câmera (background)
           if (_cameraStatus == CameraStatus.available)
-            const Positioned.fill(
+            Positioned.fill(
               child: HtmlElementView(
+                key: _cameraViewKey,
                 viewType: 'video-view',
               ),
             ),

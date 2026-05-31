@@ -1,9 +1,7 @@
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
-  <!-- O base href é essencial para o GitHub Pages. O Flutter preencherá isso no build. -->
   <base href="$FLUTTER_BASE_HREF">
-
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -11,32 +9,25 @@
   <link rel="icon" type="image/png" href="favicon.png"/>
   <link rel="manifest" href="manifest.json">
 
-  <!-- MEDIA PIPE - CARREGAMENTO COM CACHE BUSTER PARA O GIT -->
+  <!-- MEDIA PIPE - CARREGAMENTO DIRETO VIA CDN (SEM EXPORT ERRORS) -->
   <script type="module">
-    // Adicionamos ?v=1.1 para forçar o GitHub/Navegador a baixar a versão nova
-    import { FilesetResolver, ObjectDetector } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.17?v=1.1";
+    import { FilesetResolver, ObjectDetector } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.17/vision_bundle.js";
     window.FilesetResolver = FilesetResolver;
     window.ObjectDetector = ObjectDetector;
     window.isMediaPipeLoaded = true;
-    console.log("✅ MediaPipe Módulo Ativo");
+    console.log("✅ MediaPipe Module Ready");
   </script>
 
   <script>
     let objectDetector = null;
-
     window.initObjectDetector = async function() {
       try {
-        console.log("🟢 Aguardando Módulo...");
         let retry = 0;
         while (!window.isMediaPipeLoaded && retry < 100) {
           await new Promise(r => setTimeout(r, 100));
           retry++;
         }
-
-        const vision = await FilesetResolver.forVisionTasks(
-          "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.17/wasm"
-        );
-
+        const vision = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.17/wasm");
         objectDetector = await ObjectDetector.createFromOptions(vision, {
           baseOptions: {
             modelAssetPath: "https://storage.googleapis.com/mediapipe-models/object_detector/efficientdet_lite0/float16/1/efficientdet_lite0.tflite",
@@ -45,22 +36,18 @@
           runningMode: "VIDEO",
           scoreThreshold: 0.3
         });
-
-        console.log("✅ Detector TerlineT Online");
         window.dispatchEvent(new Event('mediapipe-ready'));
       } catch (err) {
-        console.error("❌ Erro Crítico IA:", err);
         window.dispatchEvent(new Event('mediapipe-error'));
       }
     };
-
-    window.runObjectDetection = function(videoID) {
+    window.runObjectDetection = function(id) {
       if (!objectDetector) return [];
-      const video = document.getElementById(videoID);
-      if (!video || video.readyState < 2) return [];
+      const v = document.getElementById(id);
+      if (!v || v.readyState < 2) return [];
       try {
-        const result = objectDetector.detectForVideo(video, performance.now());
-        return result.detections.map(d => ({
+        const r = objectDetector.detectForVideo(v, performance.now());
+        return r.detections.map(d => ({
           class: d.categories[0].categoryName,
           score: d.categories[0].score,
           bbox: [d.boundingBox.originX, d.boundingBox.originY, d.boundingBox.width, d.boundingBox.height]
@@ -68,8 +55,21 @@
       } catch (e) { return []; }
     };
   </script>
+
+  <!-- FLUTTER LOADER - VERSÃO ULTRA COMPATÍVEL -->
+  <script src="flutter.js" defer></script>
 </head>
-<body style="background-color: black;">
-  <script src="flutter_bootstrap.js" async></script>
+<body style="background: black;">
+  <script>
+    window.addEventListener('load', function() {
+      _flutter.loader.loadEntrypoint({
+        onEntrypointLoaded: function(engineInitializer) {
+          engineInitializer.initializeEngine().then(function(appRunner) {
+            appRunner.runApp();
+          });
+        }
+      });
+    });
+  </script>
 </body>
 </html>

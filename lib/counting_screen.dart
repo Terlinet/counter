@@ -45,6 +45,9 @@ class _ObjectCountingScreenState extends State<ObjectCountingScreen> {
   DateTime _lastDetectionTime = DateTime.now();
   Key _cameraViewKey = UniqueKey();
 
+  double _videoWidth = 640;
+  double _videoHeight = 480;
+
   @override
   void initState() {
     super.initState();
@@ -408,6 +411,12 @@ END OF TRANSMISSION
         return;
       }
 
+      // Atualiza dimensões reais da câmera
+      if (video.videoWidth > 0) {
+        _videoWidth = video.videoWidth.toDouble();
+        _videoHeight = video.videoHeight.toDouble();
+      }
+
       // Chama a função global registrada no carregamento do modelo
       final jsPromise = js_util.callMethod(js.context, 'runDetection', []);
       final result = await js_util.promiseToFuture(jsPromise);
@@ -479,6 +488,8 @@ END OF TRANSMISSION
                 painter: DetectionPainter(
                   _detections,
                   MediaQuery.of(context).size,
+                  _videoWidth,
+                  _videoHeight,
                   isMirrored: _facingMode == 'user',
                 ),
                 size: MediaQuery.of(context).size,
@@ -754,29 +765,30 @@ class Detection {
 class DetectionPainter extends CustomPainter {
   final List<Detection> detections;
   final Size screenSize;
+  final double videoWidth;
+  final double videoHeight;
   final bool isMirrored;
 
-  DetectionPainter(this.detections, this.screenSize, {this.isMirrored = false});
+  DetectionPainter(this.detections, this.screenSize, this.videoWidth, this.videoHeight, {this.isMirrored = false});
 
   @override
   void paint(Canvas canvas, Size size) {
-    final double videoWidth = 640;
-    final double videoHeight = 480;
+    if (videoWidth == 0 || videoHeight == 0) return;
 
-    final double videoAspect = videoWidth / videoHeight;
-    final double screenAspect = screenSize.width / screenSize.height;
-    double scaleW, scaleH, offsetX, offsetY;
+    // Lógica para BoxFit.cover (preenche a tela cortando bordas se necessário)
+    double scale;
+    double offsetX = 0;
+    double offsetY = 0;
 
-    if (screenAspect < videoAspect) {
-      scaleH = screenSize.height;
-      scaleW = scaleH * videoAspect;
-      offsetX = (screenSize.width - scaleW) / 2;
-      offsetY = 0;
+    double screenAspect = screenSize.width / screenSize.height;
+    double videoAspect = videoWidth / videoHeight;
+
+    if (screenAspect > videoAspect) {
+      scale = screenSize.width / videoWidth;
+      offsetY = (screenSize.height - videoHeight * scale) / 2;
     } else {
-      scaleW = screenSize.width;
-      scaleH = scaleW / videoAspect;
-      offsetX = 0;
-      offsetY = (screenSize.height - scaleH) / 2;
+      scale = screenSize.height / videoHeight;
+      offsetX = (screenSize.width - videoWidth * scale) / 2;
     }
 
     final paintRect = Paint()
@@ -799,10 +811,10 @@ class DetectionPainter extends CustomPainter {
     for (var det in detections) {
       final Rect src = det.rect;
 
-      double left = src.left * (scaleW / videoWidth) + offsetX;
-      double top = src.top * (scaleH / videoHeight) + offsetY;
-      double width = src.width * (scaleW / videoWidth);
-      double height = src.height * (scaleH / videoHeight);
+      double left = src.left * scale + offsetX;
+      double top = src.top * scale + offsetY;
+      double width = src.width * scale;
+      double height = src.height * scale;
 
       // Se estiver espelhado (câmera frontal), inverte a coordenada X do desenho
       if (isMirrored) {

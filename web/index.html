@@ -31,9 +31,8 @@
     @keyframes load { 0% { left: -50%; } 100% { left: 100%; } }
   </style>
 
-  <!-- Carregamento Antecipado da IA -->
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
+  <!-- MediaPipe Tasks Vision -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/vision_bundle.js" crossorigin="anonymous"></script>
 
   <script src="flutter.js" defer></script>
 </head>
@@ -44,7 +43,10 @@
   </div>
 
   <script>
+    // Debug para verificar carregamento das bibliotecas
     window.addEventListener('load', function(ev) {
+      console.log('✅ MediaPipe Vision disponível?', typeof tasksVision !== 'undefined');
+
       _flutter.loader.loadEntrypoint({
         onEntrypointLoaded: function(engineInitializer) {
           engineInitializer.initializeEngine().then(function(appRunner) {

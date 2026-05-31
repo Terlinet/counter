@@ -233,6 +233,11 @@ END OF TRANSMISSION
 
       debugPrint("✅ Camera hardware linked and playing");
 
+      // Verificação se o elemento de vídeo está no DOM (para debug)
+      html.window.setTimeout(() {
+        debugPrint('Video element exists in DOM? ${html.document.getElementById('counting-video') != null}');
+      }, 1000);
+
       // Aguarda o container estar na tela e anexa o vídeo
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (_videoContainer != null && _videoElement != null) {
@@ -267,85 +272,91 @@ END OF TRANSMISSION
     _videoContainer = null;
   }
 
-  // ---------------------- MODELO (TF.JS + COCO-SSD) ----------------------
+  // --- MODELO (MediaPipe Object Detector) ---
   Future<void> _loadModel() async {
     try {
       if (!mounted) return;
       setState(() {
         _modelReady = false;
-        _statusMessage = "WAKING UP IA CORE...";
+        _statusMessage = "WAKING UP MEDIAPIPE CORE...";
       });
 
       Completer<void> modelCompleter = Completer();
 
-      // Injeta script de monitoramento no JS
       js.context.callMethod('eval', [
         '''
         (async () => {
           try {
-            console.log("🛠️ Starting IA Core Boot...");
+            const vision = await tasksVision.FilesetResolver.forVisionTasks(
+              "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/wasm"
+            );
 
-            // Aguarda os scripts carregarem se ainda não estiverem prontos
-            let retry = 0;
-            while (typeof cocoSsd === 'undefined' && retry < 100) {
-              await new Promise(r => setTimeout(r, 200));
-              retry++;
-            }
-
-            if (typeof cocoSsd === 'undefined') {
-               throw new Error("COCO-SSD script timeout");
-            }
-
-            console.log("📦 Loading COCO-SSD Model weights...");
-            window.cocoModel = await cocoSsd.load({
-              base: 'mobilenet_v2' // Usa uma versão mais leve e rápida para mobile
+            window.objectDetector = await tasksVision.ObjectDetector.createFromOptions(vision, {
+              baseOptions: {
+                modelAssetPath: `https://storage.googleapis.com/mediapipe-models/object_detector/efficientdet_lite0/float16/1/efficientdet_lite0.tflite`,
+                delegate: "GPU"
+              },
+              runningMode: "VIDEO",
+              scoreThreshold: 0.3
             });
 
             window.runDetection = async function() {
-              if (!window.cocoModel) return [];
+              if (!window.objectDetector) return [];
               const video = document.getElementById('counting-video');
               if (!video || video.readyState < 2) return [];
               try {
-                return await window.cocoModel.detect(video);
+                const detections = window.objectDetector.detectForVideo(video, performance.now());
+
+                // Formata para o padrão esperado pelo Dart
+                const allowed = ['person', 'car', 'bicycle', 'motorcycle'];
+                return detections.detections
+                  .filter(d => d.categories[0].score > 0.3 && allowed.includes(d.categories[0].categoryName))
+                  .map(d => ({
+                    class: d.categories[0].categoryName,
+                    score: d.categories[0].score,
+                    bbox: [
+                      d.boundingBox.originX,
+                      d.boundingBox.originY,
+                      d.boundingBox.width,
+                      d.boundingBox.height
+                    ]
+                  }));
               } catch (err) {
-                console.error("Detection Loop Error:", err);
+                console.error("Detection Error:", err);
                 return [];
               }
             };
 
-            window.dispatchEvent(new Event('coco-model-ready'));
-            console.log("🎯 IA Core is now ONLINE and ready");
+            window.dispatchEvent(new Event('mediapipe-ready'));
+            console.log("🎯 MediaPipe Core online!");
           } catch (e) {
-            console.error('CRITICAL IA Load Error:', e);
-            window.dispatchEvent(new Event('coco-model-error'));
+            console.error("MediaPipe Load Error:", e);
+            window.dispatchEvent(new Event('mediapipe-error'));
           }
         })()
         '''
       ]);
 
-      html.window.addEventListener('coco-model-ready', (_) {
+      html.window.addEventListener('mediapipe-ready', (_) {
         if (!modelCompleter.isCompleted) modelCompleter.complete();
       });
 
-      html.window.addEventListener('coco-model-error', (_) {
+      html.window.addEventListener('mediapipe-error', (_) {
         if (!modelCompleter.isCompleted) modelCompleter.completeError("JS_ERROR");
       });
 
-      // Timeout de 60 segundos para baixar os modelos
-      await modelCompleter.future.timeout(const Duration(seconds: 60));
+      await modelCompleter.future.timeout(const Duration(seconds: 45));
 
       if (mounted) {
         setState(() {
           _modelReady = true;
-          _statusMessage = "SCANNING ACTIVE";
+          _statusMessage = "SCANNING ACTIVE (MEDIAPIPE)";
         });
         _startDetectionLoop();
       }
     } catch (e) {
-      debugPrint("IA Load error: $e");
-      if (mounted) {
-        setState(() => _statusMessage = "IA ERROR - TAP TO RETRY");
-      }
+      debugPrint("Erro MediaPipe: $e");
+      if (mounted) setState(() => _statusMessage = "IA ERROR - TAP TO RETRY");
     }
   }
 

@@ -1,17 +1,29 @@
-# terlinet_count
+# TerlineT Counter - CyberPunk Version 🛣️
 
-A new Flutter project.
+Sistema de contagem de objetos (Pessoas, Carros, Bicicletas e Motos) utilizando visão computacional (TensorFlow.js) diretamente no navegador.
 
-## Getting Started
+## 🚀 Funcionalidades
+- **Detecção em Tempo Real**: Identificação automática de objetos via câmera.
+- **Estilo CyberPunk**: Interface imersiva com neon, scanlines e elementos futuristas.
+- **Localização Inteligente**: Detecção automática de coordenadas via GPS ou entrada manual.
+- **Relatórios**: Geração de relatórios (.txt) com data, hora, local e contagem para download/impressão.
+- **Web App**: Funciona em qualquer dispositivo com navegador e câmera.
 
-This project is a starting point for a Flutter application.
+## 🛠️ Tecnologias
+- Flutter Web
+- TensorFlow.js (COCO-SSD)
+- Google Fonts (Orbitron)
+- Geolocator API
 
-A few resources to get you started if this is your first Flutter project:
+## 📦 Como executar
+1. Certifique-se de ter o Flutter instalado.
+2. Clone o repositório.
+3. Coloque um vídeo de fundo em `assets/videos/video.mp4`.
+4. Execute:
+   ```bash
+   flutter pub get
+   flutter run -d chrome --web-renderer html
+   ```
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## 📄 Licença
+Desenvolvido para TerlineT.

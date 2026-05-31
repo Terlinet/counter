@@ -22,6 +22,10 @@ class ObjectCountingScreen extends StatefulWidget {
 class _ObjectCountingScreenState extends State<ObjectCountingScreen> {
   html.VideoElement? _videoElement;
   html.MediaStream? _mediaStream;
+  final html.DivElement _videoContainer = html.DivElement()
+    ..style.width = '100%'
+    ..style.height = '100%'
+    ..style.backgroundColor = 'black';
   CameraStatus _cameraStatus = CameraStatus.loading;
 
   bool _modelReady = false;
@@ -45,6 +49,11 @@ class _ObjectCountingScreenState extends State<ObjectCountingScreen> {
   @override
   void initState() {
     super.initState();
+    // Registrar a visualização uma única vez
+    ui_web.platformViewRegistry.registerViewFactory(
+      'video-view',
+      (int viewId) => _videoContainer,
+    );
     _initCamera();
     _loadModel();
     _determinePosition();
@@ -190,24 +199,24 @@ END OF TRANSMISSION
         'audio': false
       });
       _mediaStream = stream;
+
       _videoElement = html.VideoElement()
         ..id = 'counting-video'
         ..autoplay = true
+        ..muted = true
         ..setAttribute('playsinline', 'true')
-        ..style.position = 'absolute'
-        ..style.top = '0'
-        ..style.left = '0'
         ..style.width = '100%'
         ..style.height = '100%'
         ..style.objectFit = 'cover';
-      html.document.body?.append(_videoElement!);
+
       _videoElement!.srcObject = stream;
 
-      // Registrar a visualização do elemento de vídeo para o Flutter
-      ui_web.platformViewRegistry.registerViewFactory(
-        'video-view',
-        (int viewId) => _videoElement!,
-      );
+      // Limpa container e adiciona o novo elemento de vídeo
+      _videoContainer.children.clear();
+      _videoContainer.append(_videoElement!);
+
+      // Garante que o vídeo comece (necessário em alguns navegadores mobile)
+      _videoElement!.play();
 
       if (mounted) {
         setState(() {
@@ -308,7 +317,9 @@ END OF TRANSMISSION
         '''
         (async () => {
           if (!window.cocoModel) return [];
-          const predictions = await window.cocoModel.detect(document.getElementById('counting-video'));
+          const video = document.getElementById('counting-video');
+          if (!video || video.readyState < 2) return [];
+          const predictions = await window.cocoModel.detect(video);
           return predictions;
         })()
         '''

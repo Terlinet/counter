@@ -214,7 +214,7 @@ END OF TRANSMISSION
       _mediaStream = stream;
 
       // Criar o elemento de vídeo se não existir
-      _videoElement ??= html.VideoElement()
+      _videoElement = html.VideoElement()
         ..id = 'counting-video'
         ..autoplay = true
         ..muted = true
@@ -222,13 +222,16 @@ END OF TRANSMISSION
         ..style.width = '100%'
         ..style.height = '100%'
         ..style.objectFit = 'cover'
-        ..style.backgroundColor = 'black';
+        ..style.backgroundColor = 'black'
+        ..style.transform = _facingMode == 'user' ? 'scaleX(-1)' : 'none';
 
       _videoElement!.srcObject = stream;
 
-      // Aguarda o vídeo estar realmente pronto para tocar
-      await _videoElement!.onCanPlay.first;
+      // Aguarda o vídeo estar realmente pronto para tocar com buffer estável
+      await _videoElement!.onCanPlayThrough.first;
       _videoElement!.play();
+
+      debugPrint("✅ Camera hardware linked and playing");
 
       // Aguarda o container estar na tela e anexa o vídeo
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -266,30 +269,51 @@ END OF TRANSMISSION
 
   // ---------------------- MODELO (TF.JS + COCO-SSD) ----------------------
   Future<void> _loadModel() async {
-    await _loadScript('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs');
-    await _loadScript('https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd');
+    try {
+      setState(() => _statusMessage = "DOWNLOADING IA MODULES...");
+      await _loadScript('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs');
+      await _loadScript('https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd');
 
-    Completer<void> modelCompleter = Completer();
-    js.context.callMethod('eval', [
-      '''
-      window.cocoModel = null;
-      cocoSsd.load().then(model => {
-        window.cocoModel = model;
-        window.dispatchEvent(new Event('coco-model-ready'));
-      });
-      '''
-    ]);
-    html.window.addEventListener('coco-model-ready', (_) {
-      if (!modelCompleter.isCompleted) modelCompleter.complete();
-    });
-    await modelCompleter.future;
+      Completer<void> modelCompleter = Completer();
+      js.context.callMethod('eval', [
+        '''
+        (async () => {
+          try {
+            window.cocoModel = await cocoSsd.load();
 
-    if (mounted) {
-      setState(() {
-        _modelReady = true;
-        _statusMessage = "SCANNING ACTIVE";
+            // Registra a função global de detecção para ser chamada pelo Flutter
+            window.runDetection = async function() {
+              if (!window.cocoModel) return [];
+              const video = document.getElementById('counting-video');
+              if (!video || video.readyState < 2) return [];
+              return await window.cocoModel.detect(video);
+            };
+
+            window.dispatchEvent(new Event('coco-model-ready'));
+            console.log("🎯 IA Core & Global Detection ready");
+          } catch (e) {
+            console.error('IA Load Error:', e);
+          }
+        })()
+        '''
+      ]);
+
+      html.window.addEventListener('coco-model-ready', (_) {
+        if (!modelCompleter.isCompleted) modelCompleter.complete();
       });
-      _startDetectionLoop();
+
+      // Timeout de segurança para não travar
+      await modelCompleter.future.timeout(const Duration(seconds: 30));
+
+      if (mounted) {
+        setState(() {
+          _modelReady = true;
+          _statusMessage = "SCANNING ACTIVE";
+        });
+        _startDetectionLoop();
+      }
+    } catch (e) {
+      setState(() => _statusMessage = "IA OFFLINE - CHECK CONNECTION");
     }
   }
 
@@ -332,28 +356,13 @@ END OF TRANSMISSION
 
     try {
       final video = _videoElement;
-      if (video == null || video.readyState != 4) {
+      if (video == null || video.readyState < 2) {
         _isDetecting = false;
         return;
       }
 
-      // Chama o modelo JS via js_util para tratar a Promise corretamente
-      final jsPromise = js_util.callMethod(
-        js.context,
-        'eval',
-        [
-          '''
-          (async () => {
-            if (!window.cocoModel) return [];
-            const video = document.getElementById('counting-video');
-            if (!video || video.readyState < 2) return [];
-            const predictions = await window.cocoModel.detect(video);
-            return predictions;
-          })()
-          '''
-        ],
-      );
-
+      // Chama a função global registrada no carregamento do modelo
+      final jsPromise = js_util.callMethod(js.context, 'runDetection', []);
       final result = await js_util.promiseToFuture(jsPromise);
 
       if (result == null) {

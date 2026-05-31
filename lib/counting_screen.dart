@@ -254,7 +254,7 @@ class DetectionPainter extends CustomPainter {
 
     for (var det in detections) {
       double l = det.rect.left * scale + offX;
-      double t = det.rect.top * scale + offsetY;
+      double t = det.rect.top * scale + offY;
       double w = det.rect.width * scale;
       double h = det.rect.height * scale;
       if (isMirrored) l = screenSize.width - l - w;

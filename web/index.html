@@ -23,70 +23,29 @@
   <meta property="og:description" content="Sistema Inteligente de Contagem de Objetos via Visão Computacional.">
   <meta property="og:image" content="assets/images/preview.png">
 
-  <!-- Twitter -->
-  <meta property="twitter:card" content="summary_large_image">
-  <meta property="twitter:url" content="https://terlinet.github.io/counter/">
-  <meta property="twitter:title" content="TerlineT Counter 🛣️">
-  <meta property="twitter:description" content="Sistema Inteligente de Contagem de Objetos via Visão Computacional.">
-  <meta property="twitter:image" content="assets/images/preview.png">
-
   <style>
-    body {
-      background-color: #000000;
-      margin: 0;
-      padding: 0;
-      overflow: hidden;
-    }
-    #loading {
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
-      color: #FFA500;
-      font-family: sans-serif;
-    }
-    .loader-bar {
-      width: 200px;
-      height: 2px;
-      background: #333;
-      margin-top: 20px;
-      position: relative;
-      overflow: hidden;
-    }
-    .loader-progress {
-      width: 50%;
-      height: 100%;
-      background: #FFA500;
-      position: absolute;
-      animation: load 2s infinite linear;
-    }
-    @keyframes load {
-      0% { left: -50%; }
-      100% { left: 100%; }
-    }
+    body { background-color: #000000; margin: 0; padding: 0; overflow: hidden; }
+    #loading { display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100vh; color: #FFA500; font-family: sans-serif; }
+    .loader-bar { width: 200px; height: 2px; background: #333; margin-top: 20px; position: relative; overflow: hidden; }
+    .loader-progress { width: 50%; height: 100%; background: #FFA500; position: absolute; animation: load 2s infinite linear; }
+    @keyframes load { 0% { left: -50%; } 100% { left: 100%; } }
   </style>
-  <script>
-    // Injeção de versão para o service worker
-    var serviceWorkerVersion = null;
-  </script>
+
+  <!-- Carregamento Antecipado da IA -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
+
   <script src="flutter.js" defer></script>
 </head>
 <body>
   <div id="loading">
-    <h2 style="letter-spacing: 5px; text-shadow: 0 0 10px #FFA500;">INICIALIZANDO SISTEMA...</h2>
-    <div class="loader-bar">
-      <div class="loader-progress"></div>
-    </div>
+    <h2 style="letter-spacing: 5px; text-shadow: 0 0 10px #FFA500;">INICIALIZANDO CORE IA...</h2>
+    <div class="loader-bar"><div class="loader-progress"></div></div>
   </div>
 
   <script>
     window.addEventListener('load', function(ev) {
-      // Usando loadEntrypoint para evitar o erro de buildConfig
       _flutter.loader.loadEntrypoint({
-        serviceWorker: {
-          serviceWorkerVersion: serviceWorkerVersion,
-        },
         onEntrypointLoaded: function(engineInitializer) {
           engineInitializer.initializeEngine().then(function(appRunner) {
             appRunner.runApp();

@@ -270,18 +270,22 @@ END OF TRANSMISSION
   // ---------------------- MODELO (TF.JS + COCO-SSD) ----------------------
   Future<void> _loadModel() async {
     try {
-      setState(() => _statusMessage = "DOWNLOADING IA MODULES...");
-      await _loadScript('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs');
-      await _loadScript('https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd');
+      setState(() => _statusMessage = "WAKING UP IA...");
 
       Completer<void> modelCompleter = Completer();
       js.context.callMethod('eval', [
         '''
         (async () => {
           try {
+            // Aguarda os scripts carregarem se ainda não estiverem prontos
+            let retry = 0;
+            while (typeof cocoSsd === 'undefined' && retry < 50) {
+              await new Promise(r => setTimeout(r, 200));
+              retry++;
+            }
+
             window.cocoModel = await cocoSsd.load();
 
-            // Registra a função global de detecção para ser chamada pelo Flutter
             window.runDetection = async function() {
               if (!window.cocoModel) return [];
               const video = document.getElementById('counting-video');
@@ -290,7 +294,7 @@ END OF TRANSMISSION
             };
 
             window.dispatchEvent(new Event('coco-model-ready'));
-            console.log("🎯 IA Core & Global Detection ready");
+            console.log("🎯 IA Core ready");
           } catch (e) {
             console.error('IA Load Error:', e);
           }
@@ -302,8 +306,7 @@ END OF TRANSMISSION
         if (!modelCompleter.isCompleted) modelCompleter.complete();
       });
 
-      // Timeout de segurança para não travar
-      await modelCompleter.future.timeout(const Duration(seconds: 30));
+      await modelCompleter.future.timeout(const Duration(seconds: 45));
 
       if (mounted) {
         setState(() {
@@ -313,19 +316,12 @@ END OF TRANSMISSION
         _startDetectionLoop();
       }
     } catch (e) {
-      setState(() => _statusMessage = "IA OFFLINE - CHECK CONNECTION");
+      setState(() => _statusMessage = "IA ERROR - REBOOT SYSTEM");
     }
   }
 
-  Future<void> _loadScript(String url) {
-    Completer<void> completer = Completer();
-    final script = html.ScriptElement()
-      ..src = url
-      ..async = true
-      ..onLoad.listen((_) => completer.complete())
-      ..onError.listen((e) => completer.completeError(e));
-    html.document.head!.append(script);
-    return completer.future;
+  Future<void> _loadScript(String url) async {
+    // Scripts agora são carregados via index.html para maior estabilidade
   }
 
   // ---------------------- LOOP DE DETECÇÃO ----------------------
@@ -428,7 +424,11 @@ END OF TRANSMISSION
           if (_detections.isNotEmpty && _modelReady)
             Positioned.fill(
               child: CustomPaint(
-                painter: DetectionPainter(_detections, MediaQuery.of(context).size),
+                painter: DetectionPainter(
+                  _detections,
+                  MediaQuery.of(context).size,
+                  isMirrored: _facingMode == 'user',
+                ),
                 size: MediaQuery.of(context).size,
               ),
             ),
@@ -693,8 +693,9 @@ class Detection {
 class DetectionPainter extends CustomPainter {
   final List<Detection> detections;
   final Size screenSize;
+  final bool isMirrored;
 
-  DetectionPainter(this.detections, this.screenSize);
+  DetectionPainter(this.detections, this.screenSize, {this.isMirrored = false});
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -741,6 +742,11 @@ class DetectionPainter extends CustomPainter {
       double top = src.top * (scaleH / videoHeight) + offsetY;
       double width = src.width * (scaleW / videoWidth);
       double height = src.height * (scaleH / videoHeight);
+
+      // Se estiver espelhado (câmera frontal), inverte a coordenada X do desenho
+      if (isMirrored) {
+        left = screenSize.width - left - width;
+      }
 
       final rect = Rect.fromLTWH(left, top, width, height);
 

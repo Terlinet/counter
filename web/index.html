@@ -9,25 +9,27 @@
   <link rel="icon" type="image/png" href="favicon.png"/>
   <link rel="manifest" href="manifest.json">
 
-  <!-- MEDIA PIPE - CARREGAMENTO DIRETO VIA CDN (SEM EXPORT ERRORS) -->
-  <script type="module">
-    import { FilesetResolver, ObjectDetector } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.17/vision_bundle.js";
-    window.FilesetResolver = FilesetResolver;
-    window.ObjectDetector = ObjectDetector;
-    window.isMediaPipeLoaded = true;
-    console.log("✅ MediaPipe Module Ready");
-  </script>
+  <!-- MEDIAPIPE - CARREGAMENTO TRADICIONAL (SEM ERROS DE EXPORT) -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.17/vision_bundle.js" crossorigin="anonymous"></script>
 
   <script>
     let objectDetector = null;
+
     window.initObjectDetector = async function() {
       try {
+        console.log("🟢 Iniciando Core...");
+
+        // Aguarda o MediaPipe estar disponível no objeto global
         let retry = 0;
-        while (!window.isMediaPipeLoaded && retry < 100) {
+        while (typeof FilesetResolver === 'undefined' && retry < 100) {
           await new Promise(r => setTimeout(r, 100));
           retry++;
         }
-        const vision = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.17/wasm");
+
+        const vision = await FilesetResolver.forVisionTasks(
+          "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.17/wasm"
+        );
+
         objectDetector = await ObjectDetector.createFromOptions(vision, {
           baseOptions: {
             modelAssetPath: "https://storage.googleapis.com/mediapipe-models/object_detector/efficientdet_lite0/float16/1/efficientdet_lite0.tflite",
@@ -36,18 +38,22 @@
           runningMode: "VIDEO",
           scoreThreshold: 0.3
         });
+
+        console.log("✅ Detector Operacional");
         window.dispatchEvent(new Event('mediapipe-ready'));
       } catch (err) {
+        console.error("❌ Erro IA:", err);
         window.dispatchEvent(new Event('mediapipe-error'));
       }
     };
-    window.runObjectDetection = function(id) {
+
+    window.runObjectDetection = function(videoID) {
       if (!objectDetector) return [];
-      const v = document.getElementById(id);
-      if (!v || v.readyState < 2) return [];
+      const video = document.getElementById(videoID);
+      if (!video || video.readyState < 2) return [];
       try {
-        const r = objectDetector.detectForVideo(v, performance.now());
-        return r.detections.map(d => ({
+        const result = objectDetector.detectForVideo(video, performance.now());
+        return result.detections.map(d => ({
           class: d.categories[0].categoryName,
           score: d.categories[0].score,
           bbox: [d.boundingBox.originX, d.boundingBox.originY, d.boundingBox.width, d.boundingBox.height]
@@ -55,21 +61,9 @@
       } catch (e) { return []; }
     };
   </script>
-
-  <!-- FLUTTER LOADER - VERSÃO ULTRA COMPATÍVEL -->
-  <script src="flutter.js" defer></script>
 </head>
-<body style="background: black;">
-  <script>
-    window.addEventListener('load', function() {
-      _flutter.loader.loadEntrypoint({
-        onEntrypointLoaded: function(engineInitializer) {
-          engineInitializer.initializeEngine().then(function(appRunner) {
-            appRunner.runApp();
-          });
-        }
-      });
-    });
-  </script>
+<body style="background-color: black;">
+  <!-- O segredo para o Flutter 3.22+ no Git é usar o bootstrap padrão -->
+  <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>

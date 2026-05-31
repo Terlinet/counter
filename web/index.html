@@ -2,33 +2,44 @@
 <html lang="pt-br">
 <head>
   <base href="$FLUTTER_BASE_HREF">
+
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <title>TerlineT Vision</title>
+  <meta name="description" content="TerlineT Vision System.">
+
+  <!-- iOS meta tags & icons -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="TerlineT Vision">
+
   <link rel="icon" type="image/png" href="favicon.png"/>
+
+  <title>TerlineT Vision</title>
   <link rel="manifest" href="manifest.json">
 
-  <!-- Carregamento via Módulo com Cache Busting -->
+  <!-- MEDIA PIPE - CARREGAMENTO COMO MÓDULO -->
   <script type="module">
-    import { FilesetResolver, ObjectDetector } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.17?v=1";
-
-    // Globais para o Dart
+    import { FilesetResolver, ObjectDetector } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.17";
     window.FilesetResolver = FilesetResolver;
     window.ObjectDetector = ObjectDetector;
-    window.mediapipeLoaded = true;
-    console.log("✅ MediaPipe Module Injetado");
+    console.log("✅ MediaPipe carregado via módulo.");
   </script>
 
   <script>
     let objectDetector = null;
+    let isModelReady = false;
 
     window.initObjectDetector = async function() {
       try {
-        console.log("🟢 Iniciando Core...");
+        console.log("🟢 Iniciando MediaPipe...");
+
         let retry = 0;
-        while (!window.mediapipeLoaded && retry < 100) {
+        while (typeof FilesetResolver === 'undefined' && retry < 100) {
           await new Promise(r => setTimeout(r, 100));
           retry++;
+        }
+        if (typeof FilesetResolver === 'undefined') {
+          throw new Error("FilesetResolver não disponível após espera.");
         }
 
         const vision = await FilesetResolver.forVisionTasks(
@@ -44,16 +55,17 @@
           scoreThreshold: 0.3
         });
 
-        console.log("✅ Detector Pronto");
+        isModelReady = true;
+        console.log("✅ Detector IA Pronto.");
         window.dispatchEvent(new Event('mediapipe-ready'));
       } catch (err) {
-        console.error("❌ Erro IA:", err);
+        console.error("❌ Erro MediaPipe:", err);
         window.dispatchEvent(new Event('mediapipe-error'));
       }
     };
 
     window.runObjectDetection = function(videoID) {
-      if (!objectDetector) return [];
+      if (!objectDetector || !isModelReady) return [];
       const video = document.getElementById(videoID);
       if (!video || video.readyState < 2) return [];
       try {

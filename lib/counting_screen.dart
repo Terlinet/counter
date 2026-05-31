@@ -3,6 +3,7 @@
 import 'dart:async';
 import 'dart:html' as html;
 import 'dart:js' as js;
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:geolocator/geolocator.dart';
@@ -689,7 +690,7 @@ class DetectionPainter extends CustomPainter {
         text: " ${det.label.toUpperCase()} ${(det.confidence * 100).toInt()}% ",
         style: textStyle,
       );
-      final textPainter = TextPainter(text: textSpan, textDirection: TextDirection.ltr);
+      final textPainter = TextPainter(text: textSpan, textDirection: ui.TextDirection.ltr);
       textPainter.layout();
       textPainter.paint(canvas, Offset(left, top - 18));
     }

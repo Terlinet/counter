@@ -7,7 +7,7 @@
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
   <meta name="description" content="A new Flutter project for object counting.">
 
-  <!-- iOS meta tags & icons -->
+  <!-- Mobile meta tags -->
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <meta name="apple-mobile-web-app-title" content="terlinet_count">
@@ -52,6 +52,10 @@
       100% { left: 100%; }
     }
   </style>
+  <script>
+    // Injeção de versão para o service worker
+    var serviceWorkerVersion = null;
+  </script>
   <script src="flutter.js" defer></script>
 </head>
 <body>
@@ -64,7 +68,11 @@
 
   <script>
     window.addEventListener('load', function(ev) {
+      // Usando loadEntrypoint para evitar o erro de buildConfig
       _flutter.loader.loadEntrypoint({
+        serviceWorker: {
+          serviceWorkerVersion: serviceWorkerVersion,
+        },
         onEntrypointLoaded: function(engineInitializer) {
           engineInitializer.initializeEngine().then(function(appRunner) {
             appRunner.runApp();

@@ -164,8 +164,7 @@ class _ObjectCountingScreenState extends State<ObjectCountingScreen> {
         _videoHeight = _videoElement!.videoHeight.toDouble();
       }
 
-      // Passamos o elemento de vídeo DIRETAMENTE para o JS
-      final result = js.context.callMethod('runObjectDetection', [_videoElement]);
+      final result = js.context.callMethod('runObjectDetection', [_videoElement!.id]);
       if (result == null) return;
 
       final predictions = result as List<dynamic>;
@@ -212,11 +211,11 @@ class _ObjectCountingScreenState extends State<ObjectCountingScreen> {
       top: 60, left: 20, right: 20,
       child: Row(
         children: [
-          Expanded(child: SingleChildScrollView(scrollDirection: Axis.horizontal, child: Row(children: [
+          Expanded(child: Row(children: [
             _countCard("PESSOAS", _counts['person']!, Icons.person),
             const SizedBox(width: 8),
             _countCard("CARROS", _counts['car']!, Icons.directions_car),
-          ]))),
+          ])),
           IconButton(icon: const Icon(Icons.download, color: Colors.cyanAccent), onPressed: _downloadReport),
         ],
       ),
@@ -255,7 +254,7 @@ class DetectionPainter extends CustomPainter {
 
     for (var det in detections) {
       double l = det.rect.left * scale + offX;
-      double t = det.rect.top * scale + offY;
+      double t = det.rect.top * scale + offsetY;
       double w = det.rect.width * scale;
       double h = det.rect.height * scale;
       if (isMirrored) l = screenSize.width - l - w;

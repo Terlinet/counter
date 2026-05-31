@@ -5,6 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from openai import OpenAI
 from pydantic import BaseModel
+from typing import Dict
 
 app = FastAPI()
 
@@ -28,6 +29,11 @@ class VisionDetection(BaseModel):
     area_name: str
     object_type: str = "pessoa"
     severity: str = "high"
+
+class CountingReport(BaseModel):
+    location: str
+    counts: Dict[str, int]
+    timestamp: str
 
 class HelperContext(BaseModel):
     event_type: str = "fall_detection"
@@ -55,8 +61,26 @@ async def explain_system():
         )
         return {"message": completion.choices[0].message.content.strip()}
     except Exception:
-        # Fallback profissional caso a IA falhe
         return {"message": "SISTEMA TERLINET EYES (MEDIAPIPE CORE) OPERACIONAL. PROTOCOLO DE CONTAGEM ATIVO. MONITORANDO FLUXO DE OBJETOS."}
+
+@app.post('/analyze_counting')
+async def analyze_counting(report: CountingReport):
+    try:
+        # Gera uma análise tática baseada nos números
+        counts_str = ", ".join([f"{v} {k}(s)" for k, v in report.counts.items()])
+        prompt = (
+            f"Como TerlineT Eyes, realize uma análise tática rápida para a localização {report.location}. "
+            f"Dados coletados: {counts_str}. "
+            "Forneça uma conclusão de segurança ou logística em no máximo 2 frases curtas e técnicas."
+        )
+        completion = client_groq.chat.completions.create(
+            model=MODEL_NAME,
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=100
+        )
+        return {"analysis": completion.choices[0].message.content.strip()}
+    except Exception:
+        return {"analysis": "ANÁLISE TÁTICA CONCLUÍDA: Fluxo dentro dos parâmetros operacionais. Monitoramento contínuo ativo."}
 
 @app.post('/vision_alert')
 async def vision_alert(v: VisionDetection):

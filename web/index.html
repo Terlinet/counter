@@ -2,37 +2,117 @@
 <html lang="pt-br">
 <head>
   <base href="$FLUTTER_BASE_HREF">
+
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>TerlineT Counter</title>
+  <meta name="description" content="TerlineT Vision System.">
 
-  <!-- MediaPipe Tasks Vision (Bundle Global) -->
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision/vision_bundle.js" crossorigin="anonymous"></script>
-  <!-- Bridge Customizada -->
-  <script src="mediapipe_bridge.js" defer></script>
+  <!-- iOS meta tags & icons -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="TerlineT Vision">
+  <link rel="apple-touch-icon" href="icons/Icon-192.png">
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="favicon.png"/>
+
+  <title>TerlineT Vision</title>
+  <link rel="manifest" href="manifest.json">
+
+  <!-- Carrega o bundle do MediaPipe Tasks Vision -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.17/vision_bundle.js"></script>
+
+  <script>
+    // Variável global para o detector
+    let objectDetector = null;
+    let isModelReady = false;
+
+    // Função chamada pelo Dart para iniciar o detector
+    window.initObjectDetector = async function() {
+      try {
+        console.log("🟢 Iniciando MediaPipe Object Detector...");
+
+        let retry = 0;
+        while (typeof FilesetResolver === 'undefined' && retry < 50) {
+          await new Promise(r => setTimeout(r, 100));
+          retry++;
+        }
+        if (typeof FilesetResolver === 'undefined') {
+          throw new Error("FilesetResolver não carregado");
+        }
+
+        const vision = await FilesetResolver.forVisionTasks(
+          "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.17/wasm"
+        );
+
+        let options = {
+          baseOptions: {
+            modelAssetPath: "https://storage.googleapis.com/mediapipe-models/object_detector/efficientdet_lite0/float16/1/efficientdet_lite0.tflite",
+            delegate: "GPU"
+          },
+          runningMode: "VIDEO",
+          scoreThreshold: 0.3
+        };
+
+        try {
+          objectDetector = await ObjectDetector.createFromOptions(vision, options);
+          console.log("✅ Detector rodando em GPU");
+        } catch (e) {
+          console.warn("⚠️ Falha na GPU, tentando CPU...");
+          options.baseOptions.delegate = "CPU";
+          objectDetector = await ObjectDetector.createFromOptions(vision, options);
+          console.log("✅ Detector rodando em CPU");
+        }
+
+        isModelReady = true;
+        window.dispatchEvent(new Event('mediapipe-ready'));
+      } catch (err) {
+        console.error("❌ Erro ao inicializar detector:", err);
+        window.dispatchEvent(new Event('mediapipe-error'));
+      }
+    };
+
+    window.runObjectDetection = function(videoElementId) {
+      if (!objectDetector || !isModelReady) return [];
+      const video = document.getElementById(videoElementId);
+      if (!video || video.readyState < 2) return [];
+
+      try {
+        const detections = objectDetector.detectForVideo(video, performance.now());
+        const allowed = ['person', 'car', 'bicycle', 'motorcycle'];
+
+        return detections.detections
+          .filter(d => d.categories[0].score > 0.3 && allowed.includes(d.categories[0].categoryName))
+          .map(d => ({
+            class: d.categories[0].categoryName,
+            score: d.categories[0].score,
+            bbox: [
+              d.boundingBox.originX,
+              d.boundingBox.originY,
+              d.boundingBox.width,
+              d.boundingBox.height
+            ]
+          }));
+      } catch (err) {
+        console.error("Erro na detecção:", err);
+        return [];
+      }
+    };
+  </script>
+
   <script src="flutter.js" defer></script>
-
-  <style>
-    body { background-color: #000; margin: 0; overflow: hidden; }
-    #loading { display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100vh; color: #FFA500; font-family: sans-serif; }
-    .loader-bar { width: 200px; height: 2px; background: #333; margin-top: 20px; position: relative; overflow: hidden; }
-    .loader-progress { width: 50%; height: 100%; background: #FFA500; position: absolute; animation: load 2s infinite linear; }
-    @keyframes load { 0% { left: -50%; } 100% { left: 100%; } }
-  </style>
 </head>
 <body>
-  <div id="loading">
-    <h2 style="letter-spacing: 5px; text-shadow: 0 0 10px #FFA500;">INICIALIZANDO CORE IA...</h2>
-    <div class="loader-bar"><div class="loader-progress"></div></div>
-  </div>
   <script>
     window.addEventListener('load', function(ev) {
-      if (typeof tasksVision !== 'undefined') {
-        window.FilesetResolver = tasksVision.FilesetResolver;
-        window.ObjectDetector = tasksVision.ObjectDetector;
-      }
-      _flutter.loader.load({
+      // Inicia MediaPipe
+      window.initObjectDetector();
+
+      // Download main.dart.js
+      _flutter.loader.loadEntrypoint({
+        serviceWorker: {
+          timeoutMillis: 4000,
+        },
         onEntrypointLoaded: function(engineInitializer) {
           engineInitializer.initializeEngine().then(function(appRunner) {
             appRunner.runApp();

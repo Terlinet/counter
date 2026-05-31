@@ -2,4 +2,4 @@ fastapi
 uvicorn
 openai
 pydantic
-python-dotenv
+python-multipart

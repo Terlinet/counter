@@ -281,50 +281,59 @@ END OF TRANSMISSION
       if (!mounted) return;
       setState(() {
         _modelReady = false;
-        _statusMessage = "INITIALIZING MEDIAPIPE...";
+        _statusMessage = "WAKING UP NEURAL CORE...";
       });
 
       Completer<void> modelCompleter = Completer();
 
-      // Injeta o código de inicialização do MediaPipe
+      // Injeta o código de inicialização do MediaPipe com versão sincronizada
       js.context.callMethod('eval', [
         '''
         (async () => {
           try {
-            // Aguarda o FilesetResolver estar disponível (vindo do script no HTML)
             let retry = 0;
-            while (typeof FilesetResolver === 'undefined' && retry < 100) {
-              await new Promise(r => setTimeout(r, 100));
+            while (typeof FilesetResolver === 'undefined' && retry < 50) {
+              await new Promise(r => setTimeout(r, 200));
               retry++;
             }
             if (typeof FilesetResolver === 'undefined') {
-              throw new Error("FilesetResolver não encontrado");
+              throw new Error("FilesetResolver not found");
             }
 
+            // Usa a mesma versão (0.10.17) para o WASM
             const vision = await FilesetResolver.forVisionTasks(
-              "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/wasm"
+              "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.17/wasm"
             );
 
-            window.objectDetector = await ObjectDetector.createFromOptions(vision, {
+            // Configuração do detector
+            const options = {
               baseOptions: {
                 modelAssetPath: "https://storage.googleapis.com/mediapipe-models/object_detector/efficientdet_lite0/float16/1/efficientdet_lite0.tflite",
-                delegate: "GPU"
+                delegate: "GPU" // Tentativa inicial com GPU
               },
               runningMode: "VIDEO",
               scoreThreshold: 0.3
-            });
+            };
 
-            // Função de detecção que retorna Promise (necessário para o Dart)
+            try {
+              window.objectDetector = await ObjectDetector.createFromOptions(vision, options);
+              console.log("🎯 MediaPipe initialized: GPU");
+            } catch (gpuError) {
+              console.warn("⚠️ GPU fail, trying CPU...", gpuError);
+              options.baseOptions.delegate = "CPU";
+              window.objectDetector = await ObjectDetector.createFromOptions(vision, options);
+              console.log("🎯 MediaPipe initialized: CPU");
+            }
+
             window.runDetection = async function() {
               if (!window.objectDetector) return [];
               const video = document.getElementById('counting-video');
               if (!video || video.readyState < 2) return [];
 
               try {
-                const now = performance.now();
-                const detections = window.objectDetector.detectForVideo(video, now);
+                const result = window.objectDetector.detectForVideo(video, performance.now());
                 const allowed = ['person', 'car', 'bicycle', 'motorcycle'];
-                return detections.detections
+                return result.detections
                   .filter(d => d.categories[0].score > 0.3 && allowed.includes(d.categories[0].categoryName))
                   .map(d => ({
                     class: d.categories[0].categoryName,
@@ -337,15 +346,13 @@ END OF TRANSMISSION
                     ]
                   }));
               } catch (err) {
-                console.error("Detection error:", err);
                 return [];
               }
             };
 
             window.dispatchEvent(new Event('mediapipe-ready'));
-            console.log("🎯 MediaPipe Object Detector pronto");
           } catch (e) {
-            console.error("Falha no MediaPipe:", e);
+            console.error("FATAL IA BOOT ERROR:", e);
             window.dispatchEvent(new Event('mediapipe-error'));
           }
         })()
@@ -356,21 +363,27 @@ END OF TRANSMISSION
         if (!modelCompleter.isCompleted) modelCompleter.complete();
       });
       html.window.addEventListener('mediapipe-error', (_) {
-        if (!modelCompleter.isCompleted) modelCompleter.completeError("MediaPipe init error");
+        if (!modelCompleter.isCompleted) modelCompleter.completeError("FAIL");
       });
 
+      // Aguarda até 45s (suficiente para o download do modelo de 4MB)
       await modelCompleter.future.timeout(const Duration(seconds: 45));
 
       if (mounted) {
         setState(() {
           _modelReady = true;
-          _statusMessage = "SCANNING ACTIVE (MEDIAPIPE)";
+          _statusMessage = "SCANNING ACTIVE";
         });
         _startDetectionLoop();
       }
     } catch (e) {
-      debugPrint("Erro MediaPipe: $e");
-      if (mounted) setState(() => _statusMessage = "IA ERROR - TAP TO RETRY");
+      debugPrint("Erro final: $e");
+      if (mounted) {
+        setState(() {
+          _statusMessage = "IA ERROR - TAP TO RETRY";
+          _modelReady = false;
+        });
+      }
     }
   }
 

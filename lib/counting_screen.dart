@@ -4,6 +4,7 @@ import 'dart:async';
 import 'dart:html' as html;
 import 'dart:js' as js;
 import 'dart:ui' as ui;
+import 'dart:ui_web' as ui_web;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:geolocator/geolocator.dart';
@@ -26,6 +27,7 @@ class _ObjectCountingScreenState extends State<ObjectCountingScreen> {
   bool _modelReady = false;
   String _statusMessage = "INITIALIZING CORE...";
   String _currentLocation = "DETECTING...";
+  String _facingMode = 'environment'; // 'user' or 'environment'
   List<Detection> _detections = [];
   final Map<String, int> _counts = {
     'person': 0,
@@ -166,6 +168,16 @@ END OF TRANSMISSION
   }
 
   // ---------------------- CÂMERA ----------------------
+  Future<void> _switchCamera() async {
+    _stopCamera();
+    setState(() {
+      _facingMode = (_facingMode == 'environment') ? 'user' : 'environment';
+      _cameraStatus = CameraStatus.loading;
+      _statusMessage = "SWITCHING CAMERA...";
+    });
+    await _initCamera();
+  }
+
   Future<void> _initCamera() async {
     try {
       final mediaDevices = html.window.navigator.mediaDevices;
@@ -174,7 +186,7 @@ END OF TRANSMISSION
         return;
       }
       final stream = await mediaDevices.getUserMedia({
-        'video': {'facingMode': 'environment'},
+        'video': {'facingMode': _facingMode},
         'audio': false
       });
       _mediaStream = stream;
@@ -190,6 +202,12 @@ END OF TRANSMISSION
         ..style.objectFit = 'cover';
       html.document.body?.append(_videoElement!);
       _videoElement!.srcObject = stream;
+
+      // Registrar a visualização do elemento de vídeo para o Flutter
+      ui_web.platformViewRegistry.registerViewFactory(
+        'video-view',
+        (int viewId) => _videoElement!,
+      );
 
       if (mounted) {
         setState(() {
@@ -345,11 +363,12 @@ END OF TRANSMISSION
         children: [
           // Feed da câmera (background)
           if (_cameraStatus == CameraStatus.available)
-             Container(
-               decoration: BoxDecoration(
-                 border: Border.all(color: Colors.cyanAccent.withOpacity(0.3), width: 1),
-               ),
-             ),
+            Positioned.fill(
+              child: HtmlElementView(
+                key: UniqueKey(),
+                viewType: 'video-view',
+              ),
+            ),
 
           // Scanlines
           const ScanlineOverlay(),
@@ -492,6 +511,9 @@ END OF TRANSMISSION
                     ),
                   ),
                 ),
+                const SizedBox(width: 10),
+                // Botão Switch Camera
+                _buildActionButton(Icons.flip_camera_ios, _switchCamera, Colors.orangeAccent),
                 const SizedBox(width: 10),
                 // Botão Download Report
                 _buildActionButton(Icons.download, _downloadReport, Colors.cyanAccent),

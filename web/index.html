@@ -32,7 +32,10 @@
   </style>
 
   <!-- MediaPipe Tasks Vision -->
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/vision_bundle.js" crossorigin="anonymous"></script>
+  <script type="module">
+    import { FilesetResolver, ObjectDetector } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/vision_bundle.mjs";
+    window.tasksVision = { FilesetResolver, ObjectDetector };
+  </script>
 
   <script src="flutter.js" defer></script>
 </head>
@@ -43,11 +46,9 @@
   </div>
 
   <script>
-    // Debug para verificar carregamento das bibliotecas
     window.addEventListener('load', function(ev) {
-      console.log('✅ MediaPipe Vision disponível?', typeof tasksVision !== 'undefined');
-
-      _flutter.loader.load({
+      // Revertido para loadEntrypoint para evitar erro de buildConfig em algumas versões do Flutter
+      _flutter.loader.loadEntrypoint({
         onEntrypointLoaded: function(engineInitializer) {
           engineInitializer.initializeEngine().then(function(appRunner) {
             appRunner.runApp();

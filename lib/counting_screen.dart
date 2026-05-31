@@ -287,6 +287,17 @@ END OF TRANSMISSION
         '''
         (async () => {
           try {
+            // Aguarda até que tasksVision esteja disponível (vindo do módulo no index.html)
+            let retry = 0;
+            while (typeof tasksVision === 'undefined' && retry < 100) {
+              await new Promise(r => setTimeout(r, 100));
+              retry++;
+            }
+
+            if (typeof tasksVision === 'undefined') {
+              throw new Error("MediaPipe Tasks Vision (tasksVision) não foi carregado corretamente.");
+            }
+
             const vision = await tasksVision.FilesetResolver.forVisionTasks(
               "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/wasm"
             );

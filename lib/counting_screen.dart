@@ -3,6 +3,7 @@
 import 'dart:async';
 import 'dart:html' as html;
 import 'dart:js' as js;
+import 'dart:js_util' as js_util;
 import 'dart:ui' as ui;
 import 'dart:ui_web' as ui_web;
 import 'package:flutter/material.dart';
@@ -22,10 +23,6 @@ class ObjectCountingScreen extends StatefulWidget {
 class _ObjectCountingScreenState extends State<ObjectCountingScreen> {
   html.VideoElement? _videoElement;
   html.MediaStream? _mediaStream;
-  final html.DivElement _videoContainer = html.DivElement()
-    ..style.width = '100%'
-    ..style.height = '100%'
-    ..style.backgroundColor = 'black';
   CameraStatus _cameraStatus = CameraStatus.loading;
 
   bool _modelReady = false;
@@ -49,10 +46,19 @@ class _ObjectCountingScreenState extends State<ObjectCountingScreen> {
   @override
   void initState() {
     super.initState();
-    // Registrar a visualização uma única vez
+    // Registrar a visualização uma única vez com fábrica dinâmica
     ui_web.platformViewRegistry.registerViewFactory(
       'video-view',
-      (int viewId) => _videoContainer,
+      (int viewId) {
+        final container = html.DivElement()
+          ..style.width = '100%'
+          ..style.height = '100%'
+          ..style.backgroundColor = 'black';
+        if (_videoElement != null) {
+          container.append(_videoElement!);
+        }
+        return container;
+      },
     );
     _initCamera();
     _loadModel();
@@ -221,16 +227,9 @@ END OF TRANSMISSION
 
       _videoElement!.srcObject = stream;
 
-      // Importante: Adicionar ao DOM para garantir o funcionamento em alguns navegadores
-      if (!_videoContainer.children.contains(_videoElement)) {
-        _videoContainer.children.clear();
-        _videoContainer.append(_videoElement!);
-      }
-
-      // Tentar dar play após um pequeno delay para garantir que o stream está pronto
-      Timer(const Duration(milliseconds: 300), () {
-        _videoElement?.play();
-      });
+      // Aguarda o vídeo estar realmente pronto para tocar
+      await _videoElement!.onCanPlay.first;
+      _videoElement!.play();
 
       if (mounted) {
         setState(() {
@@ -328,17 +327,24 @@ END OF TRANSMISSION
         return;
       }
 
-      final result = await js.context.callMethod('eval', [
-        '''
-        (async () => {
-          if (!window.cocoModel) return [];
-          const video = document.getElementById('counting-video');
-          if (!video || video.readyState < 2) return [];
-          const predictions = await window.cocoModel.detect(video);
-          return predictions;
-        })()
-        '''
-      ]);
+      // Chama o modelo JS via js_util para tratar a Promise corretamente
+      final jsPromise = js_util.callMethod(
+        js.context,
+        'eval',
+        [
+          '''
+          (async () => {
+            if (!window.cocoModel) return [];
+            const video = document.getElementById('counting-video');
+            if (!video || video.readyState < 2) return [];
+            const predictions = await window.cocoModel.detect(video);
+            return predictions;
+          })()
+          '''
+        ],
+      );
+
+      final result = await js_util.promiseToFuture(jsPromise);
 
       if (result == null) {
          _isDetecting = false;
@@ -389,9 +395,8 @@ END OF TRANSMISSION
         children: [
           // Feed da câmera (background)
           if (_cameraStatus == CameraStatus.available)
-            Positioned.fill(
+            const Positioned.fill(
               child: HtmlElementView(
-                key: UniqueKey(),
                 viewType: 'video-view',
               ),
             ),

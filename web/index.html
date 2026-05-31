@@ -2,55 +2,32 @@
 <html lang="pt-br">
 <head>
   <base href="$FLUTTER_BASE_HREF">
-
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="description" content="A new Flutter project for object counting.">
-
-  <!-- Mobile meta tags -->
-  <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black">
-  <meta name="apple-mobile-web-app-title" content="terlinet_count">
-
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>TerlineT Counter</title>
-  <link rel="manifest" href="manifest.json">
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🛣️</text></svg>">
 
-  <!-- Open Graph / Social Media Preview -->
-  <meta property="og:type" content="website">
-  <meta property="og:url" content="https://terlinet.github.io/counter/">
-  <meta property="og:title" content="TerlineT Counter 🛣️">
-  <meta property="og:description" content="Sistema Inteligente de Contagem de Objetos via Visão Computacional.">
-  <meta property="og:image" content="assets/images/preview.png">
+  <!-- MediaPipe Tasks Vision -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.17/vision_bundle.js" crossorigin="anonymous"></script>
+  <!-- Bridge Customizada -->
+  <script src="mediapipe_bridge.js" defer></script>
+  <script src="flutter.js" defer></script>
 
   <style>
-    body { background-color: #000000; margin: 0; padding: 0; overflow: hidden; }
+    body { background-color: #000; margin: 0; overflow: hidden; }
     #loading { display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100vh; color: #FFA500; font-family: sans-serif; }
-    .loader-bar { width: 200px; height: 2px; background: #333; margin-top: 20px; position: relative; overflow: hidden; }
-    .loader-progress { width: 50%; height: 100%; background: #FFA500; position: absolute; animation: load 2s infinite linear; }
-    @keyframes load { 0% { left: -50%; } 100% { left: 100%; } }
   </style>
-
-  <!-- MediaPipe Tasks Vision (Bundle Global para maior compatibilidade mobile) -->
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.17/vision_bundle.js" crossorigin="anonymous"></script>
-
-  <script src="flutter.js" defer></script>
 </head>
 <body>
   <div id="loading">
-    <h2 style="letter-spacing: 5px; text-shadow: 0 0 10px #FFA500;">INICIALIZANDO CORE IA...</h2>
-    <div class="loader-bar"><div class="loader-progress"></div></div>
+    <h2>INICIALIZANDO CORE IA...</h2>
   </div>
-
   <script>
     window.addEventListener('load', function(ev) {
-      // Garante exposição global das classes
       if (typeof tasksVision !== 'undefined') {
         window.FilesetResolver = tasksVision.FilesetResolver;
         window.ObjectDetector = tasksVision.ObjectDetector;
       }
-      console.log("✅ IA Core Library:", typeof FilesetResolver);
-
       _flutter.loader.loadEntrypoint({
         onEntrypointLoaded: function(engineInitializer) {
           engineInitializer.initializeEngine().then(function(appRunner) {

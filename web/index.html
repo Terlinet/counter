@@ -34,7 +34,9 @@
   <!-- MediaPipe Tasks Vision -->
   <script type="module">
     import { FilesetResolver, ObjectDetector } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/vision_bundle.mjs";
-    window.tasksVision = { FilesetResolver, ObjectDetector };
+    window.FilesetResolver = FilesetResolver;
+    window.ObjectDetector = ObjectDetector;
+    console.log("✅ MediaPipe bundle carregado, FilesetResolver:", typeof FilesetResolver);
   </script>
 
   <script src="flutter.js" defer></script>

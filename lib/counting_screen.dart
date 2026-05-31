@@ -278,47 +278,48 @@ END OF TRANSMISSION
       if (!mounted) return;
       setState(() {
         _modelReady = false;
-        _statusMessage = "WAKING UP MEDIAPIPE CORE...";
+        _statusMessage = "INITIALIZING MEDIAPIPE...";
       });
 
       Completer<void> modelCompleter = Completer();
 
+      // Injeta o código de inicialização do MediaPipe
       js.context.callMethod('eval', [
         '''
         (async () => {
           try {
-            // Aguarda até que tasksVision esteja disponível (vindo do módulo no index.html)
+            // Aguarda o FilesetResolver estar disponível (vindo do script no HTML)
             let retry = 0;
-            while (typeof tasksVision === 'undefined' && retry < 100) {
+            while (typeof FilesetResolver === 'undefined' && retry < 100) {
               await new Promise(r => setTimeout(r, 100));
               retry++;
             }
-
-            if (typeof tasksVision === 'undefined') {
-              throw new Error("MediaPipe Tasks Vision (tasksVision) não foi carregado corretamente.");
+            if (typeof FilesetResolver === 'undefined') {
+              throw new Error("FilesetResolver não encontrado");
             }
 
-            const vision = await tasksVision.FilesetResolver.forVisionTasks(
+            const vision = await FilesetResolver.forVisionTasks(
               "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/wasm"
             );
 
-            window.objectDetector = await tasksVision.ObjectDetector.createFromOptions(vision, {
+            window.objectDetector = await ObjectDetector.createFromOptions(vision, {
               baseOptions: {
-                modelAssetPath: `https://storage.googleapis.com/mediapipe-models/object_detector/efficientdet_lite0/float16/1/efficientdet_lite0.tflite`,
+                modelAssetPath: "https://storage.googleapis.com/mediapipe-models/object_detector/efficientdet_lite0/float16/1/efficientdet_lite0.tflite",
                 delegate: "GPU"
               },
               runningMode: "VIDEO",
               scoreThreshold: 0.3
             });
 
+            // Função de detecção que retorna Promise (necessário para o Dart)
             window.runDetection = async function() {
               if (!window.objectDetector) return [];
               const video = document.getElementById('counting-video');
               if (!video || video.readyState < 2) return [];
-              try {
-                const detections = window.objectDetector.detectForVideo(video, performance.now());
 
-                // Formata para o padrão esperado pelo Dart
+              try {
+                const now = performance.now();
+                const detections = window.objectDetector.detectForVideo(video, now);
                 const allowed = ['person', 'car', 'bicycle', 'motorcycle'];
                 return detections.detections
                   .filter(d => d.categories[0].score > 0.3 && allowed.includes(d.categories[0].categoryName))
@@ -333,15 +334,15 @@ END OF TRANSMISSION
                     ]
                   }));
               } catch (err) {
-                console.error("Detection Error:", err);
+                console.error("Detection error:", err);
                 return [];
               }
             };
 
             window.dispatchEvent(new Event('mediapipe-ready'));
-            console.log("🎯 MediaPipe Core online!");
+            console.log("🎯 MediaPipe Object Detector pronto");
           } catch (e) {
-            console.error("MediaPipe Load Error:", e);
+            console.error("Falha no MediaPipe:", e);
             window.dispatchEvent(new Event('mediapipe-error'));
           }
         })()
@@ -351,9 +352,8 @@ END OF TRANSMISSION
       html.window.addEventListener('mediapipe-ready', (_) {
         if (!modelCompleter.isCompleted) modelCompleter.complete();
       });
-
       html.window.addEventListener('mediapipe-error', (_) {
-        if (!modelCompleter.isCompleted) modelCompleter.completeError("JS_ERROR");
+        if (!modelCompleter.isCompleted) modelCompleter.completeError("MediaPipe init error");
       });
 
       await modelCompleter.future.timeout(const Duration(seconds: 45));
@@ -418,6 +418,7 @@ END OF TRANSMISSION
       }
 
       final List<dynamic> predictions = result as List<dynamic>;
+      debugPrint("Detecções recebidas: ${predictions.length}");
       final List<Detection> detections = [];
       final Map<String, int> newCounts = {'person': 0, 'car': 0, 'bicycle': 0, 'motorcycle': 0};
 

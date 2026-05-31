@@ -270,33 +270,54 @@ END OF TRANSMISSION
   // ---------------------- MODELO (TF.JS + COCO-SSD) ----------------------
   Future<void> _loadModel() async {
     try {
-      setState(() => _statusMessage = "WAKING UP IA...");
+      if (!mounted) return;
+      setState(() {
+        _modelReady = false;
+        _statusMessage = "WAKING UP IA CORE...";
+      });
 
       Completer<void> modelCompleter = Completer();
+
+      // Injeta script de monitoramento no JS
       js.context.callMethod('eval', [
         '''
         (async () => {
           try {
+            console.log("🛠️ Starting IA Core Boot...");
+
             // Aguarda os scripts carregarem se ainda não estiverem prontos
             let retry = 0;
-            while (typeof cocoSsd === 'undefined' && retry < 50) {
+            while (typeof cocoSsd === 'undefined' && retry < 100) {
               await new Promise(r => setTimeout(r, 200));
               retry++;
             }
 
-            window.cocoModel = await cocoSsd.load();
+            if (typeof cocoSsd === 'undefined') {
+               throw new Error("COCO-SSD script timeout");
+            }
+
+            console.log("📦 Loading COCO-SSD Model weights...");
+            window.cocoModel = await cocoSsd.load({
+              base: 'mobilenet_v2' // Usa uma versão mais leve e rápida para mobile
+            });
 
             window.runDetection = async function() {
               if (!window.cocoModel) return [];
               const video = document.getElementById('counting-video');
               if (!video || video.readyState < 2) return [];
-              return await window.cocoModel.detect(video);
+              try {
+                return await window.cocoModel.detect(video);
+              } catch (err) {
+                console.error("Detection Loop Error:", err);
+                return [];
+              }
             };
 
             window.dispatchEvent(new Event('coco-model-ready'));
-            console.log("🎯 IA Core ready");
+            console.log("🎯 IA Core is now ONLINE and ready");
           } catch (e) {
-            console.error('IA Load Error:', e);
+            console.error('CRITICAL IA Load Error:', e);
+            window.dispatchEvent(new Event('coco-model-error'));
           }
         })()
         '''
@@ -306,7 +327,12 @@ END OF TRANSMISSION
         if (!modelCompleter.isCompleted) modelCompleter.complete();
       });
 
-      await modelCompleter.future.timeout(const Duration(seconds: 45));
+      html.window.addEventListener('coco-model-error', (_) {
+        if (!modelCompleter.isCompleted) modelCompleter.completeError("JS_ERROR");
+      });
+
+      // Timeout de 60 segundos para baixar os modelos
+      await modelCompleter.future.timeout(const Duration(seconds: 60));
 
       if (mounted) {
         setState(() {
@@ -316,7 +342,10 @@ END OF TRANSMISSION
         _startDetectionLoop();
       }
     } catch (e) {
-      setState(() => _statusMessage = "IA ERROR - REBOOT SYSTEM");
+      debugPrint("IA Load error: $e");
+      if (mounted) {
+        setState(() => _statusMessage = "IA ERROR - TAP TO RETRY");
+      }
     }
   }
 
@@ -474,13 +503,22 @@ END OF TRANSMISSION
                   ),
                   const Spacer(),
                   GestureDetector(
-                    onTap: _showManualLocationDialog,
+                    onTap: () {
+                      if (_statusMessage.contains("RETRY")) {
+                        _loadModel();
+                      } else {
+                        _showManualLocationDialog();
+                      }
+                    },
                     child: Row(
                       children: [
-                        const Icon(Icons.location_on, color: Colors.orangeAccent, size: 14),
+                        if (_statusMessage.contains("RETRY"))
+                          const Icon(Icons.refresh, color: Colors.orangeAccent, size: 14)
+                        else
+                          const Icon(Icons.location_on, color: Colors.orangeAccent, size: 14),
                         const SizedBox(width: 5),
                         Text(
-                          "LOC: $_currentLocation",
+                          _statusMessage.contains("RETRY") ? "RETRY IA BOOT" : "LOC: $_currentLocation",
                           style: GoogleFonts.orbitron(color: Colors.white70, fontSize: 10),
                         ),
                       ],

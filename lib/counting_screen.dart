@@ -194,29 +194,43 @@ END OF TRANSMISSION
         setState(() => _cameraStatus = CameraStatus.error);
         return;
       }
+
+      // Limpar stream anterior
+      _mediaStream?.getTracks().forEach((track) => track.stop());
+
       final stream = await mediaDevices.getUserMedia({
-        'video': {'facingMode': _facingMode},
+        'video': {
+          'facingMode': _facingMode,
+          'width': {'ideal': 640},
+          'height': {'ideal': 480}
+        },
         'audio': false
       });
       _mediaStream = stream;
 
-      _videoElement = html.VideoElement()
+      // Criar o elemento de vídeo se não existir
+      _videoElement ??= html.VideoElement()
         ..id = 'counting-video'
         ..autoplay = true
         ..muted = true
         ..setAttribute('playsinline', 'true')
         ..style.width = '100%'
         ..style.height = '100%'
-        ..style.objectFit = 'cover';
+        ..style.objectFit = 'cover'
+        ..style.backgroundColor = 'black';
 
       _videoElement!.srcObject = stream;
 
-      // Limpa container e adiciona o novo elemento de vídeo
-      _videoContainer.children.clear();
-      _videoContainer.append(_videoElement!);
+      // Importante: Adicionar ao DOM para garantir o funcionamento em alguns navegadores
+      if (!_videoContainer.children.contains(_videoElement)) {
+        _videoContainer.children.clear();
+        _videoContainer.append(_videoElement!);
+      }
 
-      // Garante que o vídeo comece (necessário em alguns navegadores mobile)
-      _videoElement!.play();
+      // Tentar dar play após um pequeno delay para garantir que o stream está pronto
+      Timer(const Duration(milliseconds: 300), () {
+        _videoElement?.play();
+      });
 
       if (mounted) {
         setState(() {
@@ -225,10 +239,11 @@ END OF TRANSMISSION
         });
       }
     } catch (e) {
+      debugPrint("Erro ao iniciar câmera: $e");
       if (mounted) {
         setState(() {
           _cameraStatus = CameraStatus.error;
-          _statusMessage = "ACESSO NEGADO OU CÂMERA NÃO ENCONTRADA.\n\nESTE SISTEMA REQUER UMA CÂMERA ATIVA PARA FUNCIONAR.";
+          _statusMessage = "CÂMERA NÃO ENCONTRADA OU ACESSO NEGADO.";
         });
       }
     }

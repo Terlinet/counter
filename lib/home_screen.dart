@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 import 'counting_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -13,6 +15,7 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   late VideoPlayerController _controller;
   bool _isInitialized = false;
+  String _aiMessage = "CONNECTING TO IA CORE...";
 
   @override
   void initState() {
@@ -28,6 +31,25 @@ class _HomeScreenState extends State<HomeScreen> {
       }).catchError((error) {
         debugPrint("Erro ao carregar vídeo: $error");
       });
+
+    _fetchAIIntro();
+  }
+
+  Future<void> _fetchAIIntro() async {
+    try {
+      // Link do seu servidor no Hugging Face
+      final response = await http.get(Uri.parse('https://tertulianoshow-counter.hf.space/explain_system'));
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        setState(() {
+          _aiMessage = data['message'].toUpperCase();
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _aiMessage = "TERLINET EYES: SISTEMA OPERACIONAL. AGUARDANDO COMANDO DE ESCANEAMENTO.";
+      });
+    }
   }
 
   @override
@@ -42,7 +64,6 @@ class _HomeScreenState extends State<HomeScreen> {
       backgroundColor: Colors.black,
       body: Stack(
         children: [
-          // Background Video with Cyberpunk Filter
           if (_isInitialized)
             SizedBox.expand(
               child: FittedBox(
@@ -55,7 +76,6 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
 
-          // Cyberpunk Overlay (Gradient + Scanlines)
           Container(
             decoration: BoxDecoration(
               gradient: LinearGradient(
@@ -70,10 +90,8 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
 
-          // Scanlines Effect
           const ScanlineOverlay(),
 
-          // Content
           SafeArea(
             child: Center(
               child: SingleChildScrollView(
@@ -81,7 +99,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     const SizedBox(height: 20),
-                    // Glowing Title
                     Text(
                       'TERLINET',
                       style: GoogleFonts.orbitron(
@@ -96,7 +113,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     ),
                     Text(
-                      'SYSTEM COUNTER v1.0',
+                      'SYSTEM IA COUNTER',
                       style: GoogleFonts.orbitron(
                         color: Colors.orangeAccent,
                         fontSize: 16,
@@ -107,20 +124,52 @@ class _HomeScreenState extends State<HomeScreen> {
                         ],
                       ),
                     ),
-                    const SizedBox(height: 50),
 
-                    // Instructions
-                    Text(
-                      'SELECIONE O MÓDULO DE ESCANEAMENTO:',
-                      style: GoogleFonts.orbitron(
-                        color: Colors.white70,
-                        fontSize: 12,
-                        letterSpacing: 1,
+                    const SizedBox(height: 40),
+
+                    // AI Transmission Box
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 30),
+                      child: Container(
+                        padding: const EdgeInsets.all(15),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.7),
+                          border: Border.all(color: Colors.cyanAccent.withOpacity(0.5), width: 1),
+                          boxShadow: [
+                            BoxShadow(color: Colors.cyanAccent.withOpacity(0.1), blurRadius: 10)
+                          ]
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                const Icon(Icons.record_voice_over, color: Colors.orangeAccent, size: 16),
+                                const SizedBox(width: 8),
+                                Text(
+                                  "TERLINET EYES TRANSMISSION:",
+                                  style: GoogleFonts.orbitron(color: Colors.orangeAccent, fontSize: 10, fontWeight: FontWeight.bold),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+                            Text(
+                              _aiMessage,
+                              style: GoogleFonts.orbitron(color: Colors.white, fontSize: 11, letterSpacing: 1),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                    const SizedBox(height: 30),
 
-                    // Options Grid
+                    const SizedBox(height: 40),
+
+                    Text(
+                      'SELECIONE O MÓDULO DE ESCANEAMENTO:',
+                      style: GoogleFonts.orbitron(color: Colors.white70, fontSize: 10, letterSpacing: 1),
+                    ),
+                    const SizedBox(height: 20),
+
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 20),
                       child: Wrap(
@@ -128,26 +177,20 @@ class _HomeScreenState extends State<HomeScreen> {
                         runSpacing: 20,
                         alignment: WrapAlignment.center,
                         children: [
-                          _buildCyberOption(context, 'PESSOAS', Icons.person, 'person'),
-                          _buildCyberOption(context, 'CARROS', Icons.directions_car, 'car'),
-                          _buildCyberOption(context, 'BIKES', Icons.directions_bike, 'bicycle'),
-                          _buildCyberOption(context, 'MOTOS', Icons.motorcycle, 'motorcycle'),
+                          _buildCyberOption(context, 'PESSOAS', Icons.person),
+                          _buildCyberOption(context, 'CARROS', Icons.directions_car),
+                          _buildCyberOption(context, 'BIKES', Icons.directions_bike),
+                          _buildCyberOption(context, 'MOTOS', Icons.motorcycle),
                         ],
                       ),
                     ),
 
                     const SizedBox(height: 40),
 
-                    // Footer
                     Text(
-                      'ESTADO: AGUARDANDO COMANDO...',
-                      style: GoogleFonts.orbitron(
-                        color: Colors.cyanAccent.withOpacity(0.5),
-                        fontSize: 10,
-                        letterSpacing: 2,
-                      ),
+                      'STATUS: AI CORE ONLINE',
+                      style: GoogleFonts.orbitron(color: Colors.cyanAccent.withOpacity(0.5), fontSize: 9, letterSpacing: 2),
                     ),
-                    const SizedBox(height: 20),
                   ],
                 ),
               ),
@@ -158,68 +201,33 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildCyberOption(BuildContext context, String label, IconData icon, String type) {
+  Widget _buildCyberOption(BuildContext context, String label, IconData icon) {
     return GestureDetector(
       onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => const ObjectCountingScreen(),
-          ),
-        );
+        Navigator.push(context, MaterialPageRoute(builder: (context) => const ObjectCountingScreen()));
       },
       child: Container(
-        width: 140,
-        height: 140,
+        width: 130,
+        height: 130,
         decoration: BoxDecoration(
           color: Colors.black.withOpacity(0.7),
           border: Border.all(color: Colors.cyanAccent.withOpacity(0.5), width: 1),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.cyanAccent.withOpacity(0.1),
-              blurRadius: 10,
-              spreadRadius: 1,
-            ),
-          ],
         ),
         child: Stack(
           children: [
-            // Decorative accents
-            Positioned(
-              top: 0,
-              left: 0,
-              child: Container(width: 20, height: 2, color: Colors.orangeAccent),
-            ),
-            Positioned(
-              top: 0,
-              left: 0,
-              child: Container(width: 2, height: 20, color: Colors.orangeAccent),
-            ),
-            Positioned(
-              bottom: 0,
-              right: 0,
-              child: Container(width: 20, height: 2, color: Colors.orangeAccent),
-            ),
-            Positioned(
-              bottom: 0,
-              right: 0,
-              child: Container(width: 2, height: 20, color: Colors.orangeAccent),
-            ),
-
+            Positioned(top: 0, left: 0, child: Container(width: 15, height: 2, color: Colors.orangeAccent)),
+            Positioned(top: 0, left: 0, child: Container(width: 2, height: 15, color: Colors.orangeAccent)),
+            Positioned(bottom: 0, right: 0, child: Container(width: 15, height: 2, color: Colors.orangeAccent)),
+            Positioned(bottom: 0, right: 0, child: Container(width: 2, height: 15, color: Colors.orangeAccent)),
             Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(icon, color: Colors.orangeAccent, size: 40),
+                  Icon(icon, color: Colors.orangeAccent, size: 35),
                   const SizedBox(height: 12),
                   Text(
                     label,
-                    style: GoogleFonts.orbitron(
-                      color: Colors.white,
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 1,
-                    ),
+                    style: GoogleFonts.orbitron(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
                   ),
                 ],
               ),

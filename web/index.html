@@ -9,32 +9,34 @@
   <link rel="icon" type="image/png" href="favicon.png"/>
   <link rel="manifest" href="manifest.json">
 
-  <!-- MEDIAPIPE - CARREGAMENTO ATUALIZADO (CJS PARA COMPATIBILIDADE) -->
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.17/vision_bundle.cjs" crossorigin="anonymous"></script>
+  <!-- MEDIAPIPE - USANDO CJS COM CACHE BUSTER PARA FORÇAR ATUALIZAÇÃO -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.17/vision_bundle.cjs?v=2" crossorigin="anonymous"></script>
 
   <script>
-    let objectDetector = null;
-
     window.initObjectDetector = async function() {
       try {
-        console.log("🟢 Iniciando Core...");
+        console.log("🟢 Iniciando Core v2...");
 
-        // Aguarda o MediaPipe estar disponível no objeto global (tasks-vision exporta para o objeto global se for CJS)
+        // Aguarda carregar o bundle. O jsDelivr pode demorar a propagar.
         let retry = 0;
-        while (typeof vision === 'undefined' && typeof FilesetResolver === 'undefined' && retry < 100) {
-          await new Promise(r => setTimeout(r, 100));
+        let visionLib = null;
+
+        while (retry < 50) {
+          if (typeof vision !== 'undefined') {
+            visionLib = vision;
+            break;
+          }
+          await new Promise(r => setTimeout(r, 200));
           retry++;
         }
 
-        // Se usar o bundle CJS, o FilesetResolver costuma estar dentro de um namespace ou global
-        const resolver = typeof FilesetResolver !== 'undefined' ? FilesetResolver : vision.FilesetResolver;
-        const detector = typeof ObjectDetector !== 'undefined' ? ObjectDetector : vision.ObjectDetector;
+        if (!visionLib) throw new Error("MediaPipe library (vision) not found after retry.");
 
-        const visionAssets = await resolver.forVisionTasks(
+        const visionAssets = await visionLib.FilesetResolver.forVisionTasks(
           "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.17/wasm"
         );
 
-        objectDetector = await detector.createFromOptions(visionAssets, {
+        window.objectDetector = await visionLib.ObjectDetector.createFromOptions(visionAssets, {
           baseOptions: {
             modelAssetPath: "https://storage.googleapis.com/mediapipe-models/object_detector/efficientdet_lite0/float16/1/efficientdet_lite0.tflite",
             delegate: "GPU"
@@ -52,11 +54,11 @@
     };
 
     window.runObjectDetection = function(videoID) {
-      if (!objectDetector) return [];
+      if (!window.objectDetector) return [];
       const video = document.getElementById(videoID);
       if (!video || video.readyState < 2) return [];
       try {
-        const result = objectDetector.detectForVideo(video, performance.now());
+        const result = window.objectDetector.detectForVideo(video, performance.now());
         return result.detections.map(d => ({
           class: d.categories[0].categoryName,
           score: d.categories[0].score,
@@ -67,7 +69,6 @@
   </script>
 </head>
 <body style="background-color: black;">
-  <!-- O segredo para o Flutter 3.22+ no Git é usar o bootstrap padrão -->
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>

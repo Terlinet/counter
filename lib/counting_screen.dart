@@ -132,29 +132,42 @@ class _ObjectCountingScreenState extends State<ObjectCountingScreen> {
       if (result != null) {
         final List<dynamic> predictions = result as List<dynamic>;
         final List<WebDetection> detections = [];
+
+        // Reset counts for the frame if needed, or keep accumulating.
+        // Here we just update the UI detections.
         for (var p in predictions) {
+          final List<dynamic> bbox = p['bbox'] as List<dynamic>;
           detections.add(WebDetection(
             label: p['class'],
             score: (p['score'] as num).toDouble(),
             rect: Rect.fromLTWH(
-              (p['bbox'][0] as num).toDouble(),
-              (p['bbox'][1] as num).toDouble(),
-              (p['bbox'][2] as num).toDouble(),
-              (p['bbox'][3] as num).toDouble(),
+              (bbox[0] as num).toDouble(),
+              (bbox[1] as num).toDouble(),
+              (bbox[2] as num).toDouble(),
+              (bbox[3] as num).toDouble(),
             ),
           ));
-          // Update total counts
-          String label = p['class'].toString().toLowerCase();
-          if (_counts.containsKey(label)) {
-            _counts[label] = _counts[label]! + 1;
-          }
         }
-        setState(() {
-          _webDetections = detections;
-          _updateFPS();
-        });
+
+        if (mounted) {
+          setState(() {
+            _webDetections = detections;
+            _updateFPS();
+            // Para Web, vamos atualizar o contador geral se o score for alto
+            for (var d in detections) {
+              if (d.score > 0.5) {
+                String label = d.label.toLowerCase();
+                if (_counts.containsKey(label)) {
+                  _counts[label] = _counts[label]! + 1;
+                }
+              }
+            }
+          });
+        }
       }
-    } catch (e) {}
+    } catch (e) {
+      debugPrint("Erro loop web: $e");
+    }
   }
 
   // ========================== MOBILE LOGIC ==========================

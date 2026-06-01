@@ -266,6 +266,43 @@ class _ObjectCountingScreenState extends State<ObjectCountingScreen> {
   }
 
   // ========================== COMMON LOGIC ==========================
+  void _downloadReport() {
+    final now = DateTime.now();
+    final dateStr = "${now.day}/${now.month}/${now.year}";
+    final timeStr = "${now.hour}:${now.minute}:${now.second}";
+
+    final reportContent = '''
+TERLINET SYSTEM COUNTER REPORT
+==============================
+TIMESTAMP: $dateStr $timeStr
+LOCATION:  ${kIsWeb ? 'Web Console' : 'Mobile Unit'}
+==============================
+OBJECT COUNTS:
+- PEOPLE:      ${_counts['person']}
+- VEHICLES:    ${_counts['car']}
+- BICYCLES:    ${_counts['bicycle']}
+- MOTORCYCLES: ${_counts['motorcycle']}
+==============================
+SYSTEM STATUS: OPERATIONAL
+END OF TRANSMISSION
+''';
+
+    if (kIsWeb) {
+      final bytes = utf8.encode(reportContent);
+      final blob = html.Blob([bytes], 'text/plain');
+      final url = html.Url.createObjectUrlFromBlob(blob);
+      final anchor = html.AnchorElement(href: url)
+        ..setAttribute("download", "TERLINET_REPORT_${now.millisecondsSinceEpoch}.txt")
+        ..click();
+      html.Url.revokeObjectUrl(url);
+    } else {
+      // No mobile, apenas mostramos um snackbar por enquanto (ou poderíamos salvar em arquivo)
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("REPORT GENERATED (SAVE NOT IMPLEMENTED FOR MOBILE)")),
+      );
+    }
+  }
+
   void _updateFPS() {
     _frameCount++;
     final now = DateTime.now();
@@ -363,7 +400,12 @@ class _ObjectCountingScreenState extends State<ObjectCountingScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  IconButton(icon: const Icon(Icons.arrow_back_ios, color: Colors.cyanAccent), onPressed: () => Navigator.pop(context)),
+                  Row(
+                    children: [
+                      IconButton(icon: const Icon(Icons.arrow_back_ios, color: Colors.cyanAccent), onPressed: () => Navigator.pop(context)),
+                      IconButton(icon: const Icon(Icons.download, color: Colors.orangeAccent), onPressed: _downloadReport),
+                    ],
+                  ),
                   _buildMetricsBox(),
                 ],
               ),
@@ -405,6 +447,8 @@ class _ObjectCountingScreenState extends State<ObjectCountingScreen> {
           _buildSmallCard("VEHICLES", _counts['car']!, Icons.directions_car),
           const SizedBox(width: 8),
           _buildSmallCard("BIKES", _counts['bicycle']!, Icons.directions_bike),
+          const SizedBox(width: 8),
+          _buildSmallCard("MOTOS", _counts['motorcycle']!, Icons.motorcycle),
         ],
       ),
     );

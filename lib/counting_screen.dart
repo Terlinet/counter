@@ -34,6 +34,7 @@ class _ObjectCountingScreenState extends State<ObjectCountingScreen> {
   Timer? _detectionTimer;
   dynamic _readyListener;
   dynamic _errorListener;
+  String _webFacingMode = 'environment';
 
   // --- Common State ---
   String _statusMessage = "INITIALIZING...";
@@ -92,7 +93,10 @@ class _ObjectCountingScreenState extends State<ObjectCountingScreen> {
 
   Future<void> _startWebCamera() async {
     try {
-      final stream = await html.window.navigator.mediaDevices?.getUserMedia({'video': true, 'audio': false});
+      final stream = await html.window.navigator.mediaDevices?.getUserMedia({
+        'video': {'facingMode': _webFacingMode},
+        'audio': false
+      });
       if (_videoElement != null && stream != null) {
         _videoElement!.srcObject = stream;
       } else {
@@ -266,6 +270,43 @@ class _ObjectCountingScreenState extends State<ObjectCountingScreen> {
   }
 
   // ========================== COMMON LOGIC ==========================
+  Future<void> _switchCamera() async {
+    if (kIsWeb) {
+      setState(() {
+        _webFacingMode = (_webFacingMode == 'environment') ? 'user' : 'environment';
+        _statusMessage = "SWITCHING CAMERA...";
+      });
+      // Para o stream atual
+      final stream = _videoElement?.srcObject as html.MediaStream?;
+      stream?.getTracks().forEach((track) => track.stop());
+      await _startWebCamera();
+    } else {
+      if (_cameraController == null) return;
+      final cameras = await availableCameras();
+      if (cameras.length < 2) return;
+
+      int newIndex = cameras.indexOf(_cameraController!.description) + 1;
+      if (newIndex >= cameras.length) newIndex = 0;
+
+      await _cameraController!.dispose();
+      _cameraController = CameraController(
+        cameras[newIndex],
+        ResolutionPreset.medium,
+        enableAudio: false,
+        imageFormatGroup: Platform.isAndroid ? ImageFormatGroup.nv21 : ImageFormatGroup.bgra8888,
+      );
+
+      try {
+        await _cameraController!.initialize();
+        if (!mounted) return;
+        _cameraController!.startImageStream(_processMobileImage);
+        setState(() {});
+      } catch (e) {
+        debugPrint("Error switching mobile camera: $e");
+      }
+    }
+  }
+
   void _downloadReport() {
     final now = DateTime.now();
     final dateStr = "${now.day}/${now.month}/${now.year}";
@@ -404,6 +445,7 @@ END OF TRANSMISSION
                     children: [
                       IconButton(icon: const Icon(Icons.arrow_back_ios, color: Colors.cyanAccent), onPressed: () => Navigator.pop(context)),
                       IconButton(icon: const Icon(Icons.download, color: Colors.orangeAccent), onPressed: _downloadReport),
+                      IconButton(icon: const Icon(Icons.flip_camera_ios, color: Colors.cyanAccent), onPressed: _switchCamera),
                     ],
                   ),
                   _buildMetricsBox(),

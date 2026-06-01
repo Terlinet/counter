@@ -9,8 +9,8 @@
   <link rel="icon" type="image/png" href="favicon.png"/>
   <link rel="manifest" href="manifest.json">
 
-  <!-- MEDIAPIPE - CARREGAMENTO TRADICIONAL (SEM ERROS DE EXPORT) -->
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.17/vision_bundle.js" crossorigin="anonymous"></script>
+  <!-- MEDIAPIPE - CARREGAMENTO ATUALIZADO (CJS PARA COMPATIBILIDADE) -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.17/vision_bundle.cjs" crossorigin="anonymous"></script>
 
   <script>
     let objectDetector = null;
@@ -19,18 +19,22 @@
       try {
         console.log("🟢 Iniciando Core...");
 
-        // Aguarda o MediaPipe estar disponível no objeto global
+        // Aguarda o MediaPipe estar disponível no objeto global (tasks-vision exporta para o objeto global se for CJS)
         let retry = 0;
-        while (typeof FilesetResolver === 'undefined' && retry < 100) {
+        while (typeof vision === 'undefined' && typeof FilesetResolver === 'undefined' && retry < 100) {
           await new Promise(r => setTimeout(r, 100));
           retry++;
         }
 
-        const vision = await FilesetResolver.forVisionTasks(
+        // Se usar o bundle CJS, o FilesetResolver costuma estar dentro de um namespace ou global
+        const resolver = typeof FilesetResolver !== 'undefined' ? FilesetResolver : vision.FilesetResolver;
+        const detector = typeof ObjectDetector !== 'undefined' ? ObjectDetector : vision.ObjectDetector;
+
+        const visionAssets = await resolver.forVisionTasks(
           "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.17/wasm"
         );
 
-        objectDetector = await ObjectDetector.createFromOptions(vision, {
+        objectDetector = await detector.createFromOptions(visionAssets, {
           baseOptions: {
             modelAssetPath: "https://storage.googleapis.com/mediapipe-models/object_detector/efficientdet_lite0/float16/1/efficientdet_lite0.tflite",
             delegate: "GPU"

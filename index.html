@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <base href="/counter/">
+  <meta charset="UTF-8">
+  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- Primary Meta Tags -->
+  <title>TerlineT Vision - AI Counter</title>
+  <meta name="title" content="TerlineT Vision - AI Counter">
+  <meta name="description" content="Sistema de inteligência artificial TerlineT para contagem de fluxo e segurança em tempo real.">
+
+  <!-- Open Graph / Facebook -->
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://terlinet.github.io/counter/">
+  <meta property="og:title" content="TerlineT Vision - AI Counter">
+  <meta property="og:description" content="Sistema de inteligência artificial TerlineT para contagem de fluxo e segurança em tempo real.">
+  <meta property="og:image" content="https://terlinet.github.io/counter/assets/assets/images/preview.png">
+
+  <!-- Twitter -->
+  <meta property="twitter:card" content="summary_large_image">
+  <meta property="twitter:url" content="https://terlinet.github.io/counter/">
+  <meta property="twitter:title" content="TerlineT Vision - AI Counter">
+  <meta property="twitter:description" content="Sistema de inteligência artificial TerlineT para contagem de fluxo e segurança em tempo real.">
+  <meta property="twitter:image" content="https://terlinet.github.io/counter/assets/assets/images/preview.png">
+
+  <!-- Favicon as Emoji 🛣️ -->
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🛣️</text></svg>">
+
+  <link rel="manifest" href="manifest.json">
+
+  <script type="module">
+    import {
+      ObjectDetector,
+      FilesetResolver
+    } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.17";
+
+    let detector = null;
+
+    window.initObjectDetectorV3 = async () => {
+      try {
+        console.log("🚀 TERLINET CORE V3: Iniciando...");
+
+        const vision = await FilesetResolver.forVisionTasks(
+          "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.17/wasm"
+        );
+
+        detector = await ObjectDetector.createFromOptions(vision, {
+          baseOptions: {
+            modelAssetPath: "https://storage.googleapis.com/mediapipe-models/object_detector/efficientdet_lite0/float16/1/efficientdet_lite0.tflite",
+            delegate: "GPU"
+          },
+          runningMode: "VIDEO",
+          scoreThreshold: 0.5
+        });
+
+        window.objectDetectorInstance = detector;
+        console.log("✅ TERLINET CORE V3: Operacional");
+        window.dispatchEvent(new Event("mediapipe-ready"));
+      } catch (error) {
+        console.error("❌ TERLINET CORE V3 Erro:", error);
+        window.dispatchEvent(new Event("mediapipe-error"));
+      }
+    };
+
+    window.runObjectDetection = (videoId) => {
+      if (!detector) return [];
+      const video = document.getElementById(videoId);
+      if (!video || video.readyState < 2) return [];
+
+      try {
+        const detections = detector.detectForVideo(video, performance.now());
+        return detections.detections.map(d => ({
+          class: d.categories[0].categoryName,
+          score: d.categories[0].score,
+          bbox: [d.boundingBox.originX, d.boundingBox.originY, d.boundingBox.width, d.boundingBox.height]
+        }));
+      } catch (e) {
+        return [];
+      }
+    };
+  </script>
+</head>
+<body style="background-color: black;">
+  <script src="flutter_bootstrap.js" async></script>
+</body>
+</html>

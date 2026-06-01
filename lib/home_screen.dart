@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'counting_screen.dart';
+import 'area_counting_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -177,10 +178,11 @@ class _HomeScreenState extends State<HomeScreen> {
                         runSpacing: 20,
                         alignment: WrapAlignment.center,
                         children: [
-                          _buildCyberOption(context, 'PESSOAS', Icons.person),
-                          _buildCyberOption(context, 'CARROS', Icons.directions_car),
-                          _buildCyberOption(context, 'BIKES', Icons.directions_bike),
-                          _buildCyberOption(context, 'MOTOS', Icons.motorcycle),
+                          _buildCyberOption(context, 'PESSOAS', Icons.person, const ObjectCountingScreen()),
+                          _buildCyberOption(context, 'CARROS', Icons.directions_car, const ObjectCountingScreen()),
+                          _buildCyberOption(context, 'ÁREA IA', Icons.ads_click, const AreaCountingScreen()),
+                          _buildCyberOption(context, 'BIKES', Icons.directions_bike, const ObjectCountingScreen()),
+                          _buildCyberOption(context, 'MOTOS', Icons.motorcycle, const ObjectCountingScreen()),
                         ],
                       ),
                     ),
@@ -201,10 +203,10 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildCyberOption(BuildContext context, String label, IconData icon) {
+  Widget _buildCyberOption(BuildContext context, String label, IconData icon, Widget screen) {
     return GestureDetector(
       onTap: () {
-        Navigator.push(context, MaterialPageRoute(builder: (context) => const ObjectCountingScreen()));
+        Navigator.push(context, MaterialPageRoute(builder: (context) => screen));
       },
       child: Container(
         width: 130,

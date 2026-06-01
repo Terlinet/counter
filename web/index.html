@@ -9,63 +9,73 @@
   <link rel="icon" type="image/png" href="favicon.png"/>
   <link rel="manifest" href="manifest.json">
 
-  <!-- MEDIAPIPE - USANDO CJS COM CACHE BUSTER PARA FORÇAR ATUALIZAÇÃO -->
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.17/vision_bundle.cjs?v=2" crossorigin="anonymous"></script>
+  <!-- MEDIAPIPE - USANDO UNPKG PARA EVITAR ERROS DE MIME TYPE -->
+  <script src="https://unpkg.com/@mediapipe/tasks-vision@0.10.17/vision_bundle.js"></script>
 
   <script>
-    window.initObjectDetector = async function() {
+    let objectDetector = null;
+    let video = null;
+    let runningMode = "VIDEO";
+
+    window.initObjectDetector = async () => {
       try {
-        console.log("🟢 Iniciando Core v2...");
-
-        // Aguarda carregar o bundle. O jsDelivr pode demorar a propagar.
-        let retry = 0;
-        let visionLib = null;
-
-        while (retry < 50) {
-          if (typeof vision !== 'undefined') {
-            visionLib = vision;
-            break;
-          }
-          await new Promise(r => setTimeout(r, 200));
-          retry++;
-        }
-
-        if (!visionLib) throw new Error("MediaPipe library (vision) not found after retry.");
-
-        const visionAssets = await visionLib.FilesetResolver.forVisionTasks(
-          "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.17/wasm"
+        console.log("🟢 Iniciando Core...");
+        const vision = await FilesetResolver.forVisionTasks(
+          "https://unpkg.com/@mediapipe/tasks-vision@0.10.17/wasm"
         );
-
-        window.objectDetector = await visionLib.ObjectDetector.createFromOptions(visionAssets, {
+        objectDetector = await ObjectDetector.createFromOptions(vision, {
           baseOptions: {
-            modelAssetPath: "https://storage.googleapis.com/mediapipe-models/object_detector/efficientdet_lite0/float16/1/efficientdet_lite0.tflite",
-            delegate: "GPU"
+            modelAssetPath: "https://storage.googleapis.com/mediapipe-models/object_detector/efficientdet_lite0/float32/1/efficientdet_lite0.tflite",
+            delegate: "CPU"
           },
-          runningMode: "VIDEO",
-          scoreThreshold: 0.3
+          runningMode: runningMode,
+          scoreThreshold: 0.5
         });
 
-        console.log("✅ Detector Operacional");
-        window.dispatchEvent(new Event('mediapipe-ready'));
-      } catch (err) {
-        console.error("❌ Erro IA:", err);
-        window.dispatchEvent(new Event('mediapipe-error'));
+        video = document.getElementById("counting-video");
+        if (video && video.readyState >= 2) {
+          window.dispatchEvent(new Event("mediapipe-ready"));
+        } else if (video) {
+          video.onloadeddata = () => window.dispatchEvent(new Event("mediapipe-ready"));
+        } else {
+          console.error("Video element not found");
+          // Tentativa de busca periódica se o Flutter demorar a injetar o view
+          let retry = 0;
+          const checkVideo = setInterval(() => {
+            video = document.getElementById("counting-video");
+            if (video) {
+              clearInterval(checkVideo);
+              video.onloadeddata = () => window.dispatchEvent(new Event("mediapipe-ready"));
+              if (video.readyState >= 2) window.dispatchEvent(new Event("mediapipe-ready"));
+            }
+            if (++retry > 20) clearInterval(checkVideo);
+          }, 500);
+        }
+      } catch (error) {
+        console.error("MediaPipe init error:", error);
+        window.dispatchEvent(new Event("mediapipe-error"));
       }
     };
 
-    window.runObjectDetection = function(videoID) {
-      if (!window.objectDetector) return [];
-      const video = document.getElementById(videoID);
-      if (!video || video.readyState < 2) return [];
+    window.runObjectDetection = (videoId) => {
+      if (!objectDetector || !video || video.readyState < 2) return [];
       try {
-        const result = window.objectDetector.detectForVideo(video, performance.now());
-        return result.detections.map(d => ({
-          class: d.categories[0].categoryName,
-          score: d.categories[0].score,
+        const now = performance.now();
+        const detections = objectDetector.detectForVideo(video, now);
+        return detections.detections.map(d => ({
+          class: d.categories[0]?.categoryName || "unknown",
+          score: d.categories[0]?.score || 0,
           bbox: [d.boundingBox.originX, d.boundingBox.originY, d.boundingBox.width, d.boundingBox.height]
         }));
-      } catch (e) { return []; }
+      } catch (e) {
+        return [];
+      }
     };
+
+    window.addEventListener("load", () => {
+      // O Flutter pode chamar isso manualmente, mas deixamos aqui como garantia
+      // window.initObjectDetector();
+    });
   </script>
 </head>
 <body style="background-color: black;">

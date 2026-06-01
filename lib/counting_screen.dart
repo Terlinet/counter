@@ -31,6 +31,9 @@ class _ObjectCountingScreenState extends State<ObjectCountingScreen> {
   html.VideoElement? _videoElement;
   bool _modelReady = false;
   List<WebDetection> _webDetections = [];
+  Timer? _detectionTimer;
+  dynamic _readyListener;
+  dynamic _errorListener;
 
   // --- Common State ---
   String _statusMessage = "INITIALIZING...";
@@ -92,32 +95,46 @@ class _ObjectCountingScreenState extends State<ObjectCountingScreen> {
       final stream = await html.window.navigator.mediaDevices?.getUserMedia({'video': true, 'audio': false});
       if (_videoElement != null && stream != null) {
         _videoElement!.srcObject = stream;
+      } else {
+        setState(() => _statusMessage = "CÂMERA INDISPONÍVEL");
       }
     } catch (e) {
-      setState(() => _statusMessage = "CAM ERROR: $e");
+      setState(() => _statusMessage = "PERMISSÃO NEGADA: $e");
     }
   }
 
   Future<void> _loadWebModel() async {
-    try {
-      js.context.callMethod('initObjectDetector');
-      html.window.addEventListener('mediapipe-ready', (_) {
-        if (mounted) {
-          setState(() {
-            _modelReady = true;
-            _statusMessage = "WEB SCANNER ACTIVE";
-          });
-          _startWebLoop();
-        }
-      });
-      html.window.addEventListener('mediapipe-error', (_) {
+    _readyListener = (_) {
+      if (mounted) {
+        setState(() {
+          _modelReady = true;
+          _statusMessage = "WEB SCANNER ACTIVE";
+        });
+        _startWebLoop();
+      }
+    };
+    _errorListener = (_) {
+      if (mounted) {
         setState(() => _statusMessage = "IA CORE ERROR");
+      }
+    };
+
+    html.window.addEventListener('mediapipe-ready', _readyListener);
+    html.window.addEventListener('mediapipe-error', _errorListener);
+
+    if (html.document.querySelector('#counting-video') != null) {
+      js.context.callMethod('initObjectDetector');
+    } else {
+      // Se ainda não existir, tenta em um pequeno delay
+      Future.delayed(const Duration(milliseconds: 500), () {
+        js.context.callMethod('initObjectDetector');
       });
-    } catch (e) {}
+    }
   }
 
   void _startWebLoop() {
-    Timer.periodic(const Duration(milliseconds: 100), (timer) {
+    _detectionTimer?.cancel();
+    _detectionTimer = Timer.periodic(const Duration(milliseconds: 100), (timer) {
       if (!mounted || !_modelReady) {
         timer.cancel();
         return;
@@ -133,13 +150,17 @@ class _ObjectCountingScreenState extends State<ObjectCountingScreen> {
         final List<dynamic> predictions = result as List<dynamic>;
         final List<WebDetection> detections = [];
 
-        // Reset counts for the frame if needed, or keep accumulating.
-        // Here we just update the UI detections.
+        // Para evitar contagem infinita, limpamos as contagens atuais do frame
+        final Map<String, int> frameCounts = {};
+
         for (var p in predictions) {
           final List<dynamic> bbox = p['bbox'] as List<dynamic>;
+          final String label = p['class'].toString().toLowerCase();
+          final double score = (p['score'] as num).toDouble();
+
           detections.add(WebDetection(
-            label: p['class'],
-            score: (p['score'] as num).toDouble(),
+            label: label,
+            score: score,
             rect: Rect.fromLTWH(
               (bbox[0] as num).toDouble(),
               (bbox[1] as num).toDouble(),
@@ -147,21 +168,18 @@ class _ObjectCountingScreenState extends State<ObjectCountingScreen> {
               (bbox[3] as num).toDouble(),
             ),
           ));
+
+          if (score > 0.5) {
+            frameCounts[label] = (frameCounts[label] ?? 0) + 1;
+          }
         }
 
         if (mounted) {
           setState(() {
             _webDetections = detections;
             _updateFPS();
-            // Para Web, vamos atualizar o contador geral se o score for alto
-            for (var d in detections) {
-              if (d.score > 0.5) {
-                String label = d.label.toLowerCase();
-                if (_counts.containsKey(label)) {
-                  _counts[label] = _counts[label]! + 1;
-                }
-              }
-            }
+            // Atualiza _counts apenas com os objetos do frame atual
+            _counts.updateAll((key, value) => frameCounts[key] ?? 0);
           });
         }
       }
@@ -289,8 +307,13 @@ class _ObjectCountingScreenState extends State<ObjectCountingScreen> {
   @override
   void dispose() {
     _reportTimer?.cancel();
+    _detectionTimer?.cancel();
     _cameraController?.dispose();
     _objectDetector?.close();
+    if (kIsWeb) {
+      html.window.removeEventListener('mediapipe-ready', _readyListener);
+      html.window.removeEventListener('mediapipe-error', _errorListener);
+    }
     super.dispose();
   }
 

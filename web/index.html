@@ -16,23 +16,21 @@
   <meta property="og:url" content="https://terlinet.github.io/counter/">
   <meta property="og:title" content="TerlineT Vision - AI Counter">
   <meta property="og:description" content="Sistema de inteligência artificial TerlineT para contagem de fluxo e segurança em tempo real.">
-  <meta property="og:image" content="assets/images/preview.png">
+  <meta property="og:image" content="https://terlinet.github.io/counter/assets/assets/images/preview.png">
 
   <!-- Twitter -->
   <meta property="twitter:card" content="summary_large_image">
   <meta property="twitter:url" content="https://terlinet.github.io/counter/">
   <meta property="twitter:title" content="TerlineT Vision - AI Counter">
   <meta property="twitter:description" content="Sistema de inteligência artificial TerlineT para contagem de fluxo e segurança em tempo real.">
-  <meta property="twitter:image" content="assets/images/preview.png">
+  <meta property="twitter:image" content="https://terlinet.github.io/counter/assets/assets/images/preview.png">
 
-  <!-- Favicons -->
-  <link rel="apple-touch-icon" sizes="180x180" href="favicon.png">
-  <link rel="icon" type="image/png" sizes="32x32" href="favicon.png">
-  <link rel="icon" type="image/png" sizes="16x16" href="favicon.png">
+  <!-- Favicon as Emoji 🛣️ -->
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🛣️</text></svg>">
+
   <link rel="manifest" href="manifest.json">
 
   <script type="module">
-    // Importação direta via Módulo ES (Mais estável para Web moderno)
     import {
       ObjectDetector,
       FilesetResolver
@@ -40,7 +38,6 @@
 
     let detector = null;
 
-    // Função com nome novo para forçar atualização do cache
     window.initObjectDetectorV3 = async () => {
       try {
         console.log("🚀 TERLINET CORE V3: Iniciando...");

@@ -270,6 +270,192 @@ class _ObjectCountingScreenState extends State<ObjectCountingScreen> {
   }
 
   // ========================== COMMON LOGIC ==========================
+  void _showReportDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: Colors.black,
+        shape: RoundedRectangleBorder(side: const BorderSide(color: Colors.cyanAccent, width: 2), borderRadius: BorderRadius.circular(10)),
+        title: Text("SELECT REPORT TYPE", style: GoogleFonts.orbitron(color: Colors.orangeAccent, fontSize: 16)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildDialogOption("PIE CHART (PIZZA)", Icons.pie_chart, "pie"),
+            _buildDialogOption("BAR CHART (BARRAS)", Icons.bar_chart, "bar"),
+            _buildDialogOption("COLUMN CHART (COLUNAS)", Icons.insert_chart, "column"),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDialogOption(String label, IconData icon, String type) {
+    return ListTile(
+      leading: Icon(icon, color: Colors.cyanAccent),
+      title: Text(label, style: GoogleFonts.orbitron(color: Colors.white, fontSize: 12)),
+      onTap: () {
+        Navigator.pop(context);
+        _generateAdvancedReport(type);
+      },
+    );
+  }
+
+  void _generateAdvancedReport(String chartType) {
+    final now = DateTime.now();
+    final dateStr = "${now.day}/${now.month}/${now.year} ${now.hour}:${now.minute}:${now.second}";
+
+    // Calcula totais e dados para o gráfico
+    final labels = _counts.keys.map((k) => k.toUpperCase()).toList();
+    final values = _counts.values.toList();
+    final total = values.fold(0, (sum, item) => sum + item);
+
+    String chartHtml = "";
+
+    if (chartType == "bar") {
+      chartHtml = _generateBarChartHtml(labels, values);
+    } else if (chartType == "column") {
+      chartHtml = _generateColumnChartHtml(labels, values);
+    } else {
+      chartHtml = _generatePieChartHtml(labels, values, total);
+    }
+
+    final fullHtml = """
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>TERLINET AI REPORT</title>
+  <style>
+    body { background: #050505; color: #00ffff; font-family: 'Courier New', Courier, monospace; padding: 40px; }
+    .header { border-bottom: 2px solid #ff8c00; padding-bottom: 20px; margin-bottom: 30px; }
+    .title { color: #ff8c00; font-size: 28px; font-weight: bold; letter-spacing: 5px; }
+    .meta { color: #00cccc; font-size: 14px; margin-top: 10px; }
+    .container { display: flex; flex-direction: column; align-items: center; }
+    .chart-box { width: 100%; max-width: 800px; background: rgba(0, 255, 255, 0.05); border: 1px solid #00ffff; padding: 30px; margin-top: 30px; box-shadow: 0 0 20px rgba(0, 255, 255, 0.2); }
+
+    /* Bar Chart Styles */
+    .bar-row { margin-bottom: 15px; }
+    .bar-label { font-size: 14px; margin-bottom: 5px; }
+    .bar-bg { background: #111; height: 25px; width: 100%; position: relative; }
+    .bar-fill { background: linear-gradient(90deg, #00ffff, #ff8c00); height: 100%; transition: width 1s; }
+    .bar-value { position: absolute; right: 10px; top: 3px; color: white; font-weight: bold; font-size: 14px; }
+
+    /* Column Chart Styles */
+    .col-container { display: flex; height: 300px; align-items: flex-end; justify-content: space-around; padding-top: 20px; }
+    .col-item { display: flex; flex-direction: column; align-items: center; width: 60px; }
+    .col-bar { background: linear-gradient(0deg, #00ffff, #ff8c00); width: 40px; transition: height 1s; }
+    .col-label { font-size: 10px; margin-top: 10px; text-align: center; height: 30px; }
+
+    /* Pie Chart Styles (Simplified with SVG) */
+    .pie-svg { width: 300px; height: 300px; transform: rotate(-90deg); border-radius: 50%; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="title">TERLINET SYSTEM REPORT</div>
+    <div class="meta">TIMESTAMP: $dateStr | LOCATION: ${kIsWeb ? "WEB_TERMINAL" : "MOBILE_UNIT_01"}</div>
+  </div>
+
+  <div class="container">
+    <div class="chart-box">
+      <h3 style="text-align: center; color: #ff8c00;">OBJECT DETECTION ANALYTICS</h3>
+      $chartHtml
+    </div>
+
+    <div style="margin-top: 40px; width: 100%; max-width: 800px; border: 1px dashed #ff8c00; padding: 20px;">
+      <h4 style="color: #ff8c00;">SUMMARY DATA:</h4>
+      <ul>
+        ${labels.asMap().entries.map((e) => "<li>${e.value}: ${values[e.key]} UNITS</li>").join("")}
+        <li style="border-top: 1px solid #555; margin-top: 10px; padding-top: 10px; list-style: none; font-weight: bold;">TOTAL DETECTIONS: $total</li>
+      </ul>
+    </div>
+  </div>
+
+  <p style="text-align: center; margin-top: 50px; font-size: 10px; color: #555;">SYSTEM STATUS: SECURE | ENCRYPTION: ACTIVE | TERLINET AI CORE v1.0</p>
+</body>
+</html>
+""";
+
+    if (kIsWeb) {
+      final bytes = utf8.encode(fullHtml);
+      final blob = html.Blob([bytes], 'text/html');
+      final url = html.Url.createObjectUrlFromBlob(blob);
+      final anchor = html.AnchorElement(href: url)
+        ..setAttribute("download", "TERLINET_REPORT_${now.millisecondsSinceEpoch}.html")
+        ..click();
+      html.Url.revokeObjectUrl(url);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("HTML REPORT GENERATED")));
+    }
+  }
+
+  String _generateBarChartHtml(List<String> labels, List<int> values) {
+    int maxVal = values.fold(1, (max, v) => v > max ? v : max);
+    String rows = "";
+    for (int i = 0; i < labels.length; i++) {
+      double percent = (values[i] / maxVal) * 100;
+      rows += """
+      <div class="bar-row">
+        <div class="bar-label">${labels[i]}</div>
+        <div class="bar-bg">
+          <div class="bar-fill" style="width: $percent%;"></div>
+          <div class="bar-value">${values[i]}</div>
+        </div>
+      </div>
+      """;
+    }
+    return rows;
+  }
+
+  String _generateColumnChartHtml(List<String> labels, List<int> values) {
+    int maxVal = values.fold(1, (max, v) => v > max ? v : max);
+    String cols = '<div class="col-container">';
+    for (int i = 0; i < labels.length; i++) {
+      double percent = (values[i] / maxVal) * 100;
+      cols += """
+      <div class="col-item">
+        <span style="font-size: 12px; margin-bottom: 5px;">${values[i]}</span>
+        <div class="col-bar" style="height: ${percent}%;"></div>
+        <div class="col-label">${labels[i]}</div>
+      </div>
+      """;
+    }
+    cols += "</div>";
+    return cols;
+  }
+
+  String _generatePieChartHtml(List<String> labels, List<int> values, int total) {
+    if (total == 0) return "<p>NO DATA DETECTED</p>";
+    String svgParts = "";
+    double cumulativePercent = 0;
+    final colors = ["#00ffff", "#ff8c00", "#ff00ff", "#ffff00", "#00ff00"];
+
+    for (int i = 0; i < labels.length; i++) {
+      double percent = values[i] / total;
+      // Calcula o stroke-dasharray para o SVG circular
+      // Perímetro do círculo r=15.9155 é 100
+      double start = cumulativePercent * 100;
+      double end = percent * 100;
+      svgParts += '<circle cx="21" cy="21" r="15.9155" fill="transparent" stroke="${colors[i % colors.length]}" stroke-width="10" stroke-dasharray="$end 100" stroke-dashoffset="-$start"></circle>';
+      cumulativePercent += percent;
+    }
+
+    String legend = '<div style="margin-top: 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">';
+    for (int i = 0; i < labels.length; i++) {
+      legend += '<div><span style="display:inline-block; width:12px; height:12px; background:${colors[i % colors.length]}; margin-right:5px;"></span>${labels[i]} (${((values[i]/total)*100).toStringAsFixed(1)}%)</div>';
+    }
+    legend += '</div>';
+
+    return """
+    <div style="display: flex; flex-direction: column; align-items: center;">
+      <svg viewBox="0 0 42 42" class="pie-svg" style="width: 250px; height: 250px;">
+        $svgParts
+      </svg>
+      $legend
+    </div>
+    """;
+  }
+
   Future<void> _switchCamera() async {
     if (kIsWeb) {
       setState(() {
@@ -444,7 +630,7 @@ END OF TRANSMISSION
                   Row(
                     children: [
                       IconButton(icon: const Icon(Icons.arrow_back_ios, color: Colors.cyanAccent), onPressed: () => Navigator.pop(context)),
-                      IconButton(icon: const Icon(Icons.download, color: Colors.orangeAccent), onPressed: _downloadReport),
+                      IconButton(icon: const Icon(Icons.download, color: Colors.orangeAccent), onPressed: _showReportDialog),
                       IconButton(icon: const Icon(Icons.flip_camera_ios, color: Colors.cyanAccent), onPressed: _switchCamera),
                     ],
                   ),

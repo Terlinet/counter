@@ -10,22 +10,18 @@
   <link rel="manifest" href="manifest.json">
 
   <script type="module">
-    // Importando diretamente do CDN como módulo
+    // Importação direta via Módulo ES (Mais estável para Web moderno)
     import {
       ObjectDetector,
       FilesetResolver
     } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.17";
 
-    // Expondo para o objeto window para que o Flutter possa acessar
-    window.ObjectDetector = ObjectDetector;
-    window.FilesetResolver = FilesetResolver;
-
     let detector = null;
-    let video = null;
 
-    window.initObjectDetector = async () => {
+    // Função com nome novo para forçar atualização do cache
+    window.initObjectDetectorV3 = async () => {
       try {
-        console.log("🟢 Iniciando Core via ESM...");
+        console.log("🚀 TERLINET CORE V3: Iniciando...");
 
         const vision = await FilesetResolver.forVisionTasks(
           "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.17/wasm"
@@ -41,18 +37,17 @@
         });
 
         window.objectDetectorInstance = detector;
-
-        console.log("✅ Detector Operacional");
+        console.log("✅ TERLINET CORE V3: Operacional");
         window.dispatchEvent(new Event("mediapipe-ready"));
       } catch (error) {
-        console.error("❌ Erro IA:", error);
+        console.error("❌ TERLINET CORE V3 Erro:", error);
         window.dispatchEvent(new Event("mediapipe-error"));
       }
     };
 
     window.runObjectDetection = (videoId) => {
       if (!detector) return [];
-      video = document.getElementById(videoId);
+      const video = document.getElementById(videoId);
       if (!video || video.readyState < 2) return [];
 
       try {

@@ -123,11 +123,11 @@ class _ObjectCountingScreenState extends State<ObjectCountingScreen> {
     html.window.addEventListener('mediapipe-error', _errorListener);
 
     if (html.document.querySelector('#counting-video') != null) {
-      js.context.callMethod('initObjectDetector');
+      js.context.callMethod('initObjectDetectorV3');
     } else {
       // Se ainda não existir, tenta em um pequeno delay
       Future.delayed(const Duration(milliseconds: 500), () {
-        js.context.callMethod('initObjectDetector');
+        js.context.callMethod('initObjectDetectorV3');
       });
     }
   }

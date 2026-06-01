@@ -15,7 +15,7 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
-          flutter-version: '3.22.0' # Versão estável para garantir compatibilidade com o novo index.html
+          # Removendo a versão fixa para usar a mais recente do canal stable
 
       - name: Install dependencies
         run: flutter pub get
